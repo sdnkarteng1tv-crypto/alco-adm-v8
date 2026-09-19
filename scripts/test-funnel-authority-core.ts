@@ -3827,6 +3827,84 @@ assert(
   'Test P3D-B-21: handleGenerateImage retains stale response async guard'
 );
 
+// =============================================================
+// PHASE 3D-C: CAROUSEL & VIDEO PRODUCTION GATE TESTS
+// =============================================================
+
+// Re-read pageStudioSource in case of updates
+const pageStudioSourceLatest = fs.readFileSync(pageStudioPath, 'utf8');
+
+// Extract handleGenerateWithAI function body for checking Carousel & Video flows
+const handleGenAIStart = pageStudioSourceLatest.indexOf('const handleGenerateWithAI =');
+const handleGenAIEnd = pageStudioSourceLatest.indexOf('const renderTabContent =');
+assert(
+  handleGenAIStart !== -1 && handleGenAIEnd !== -1 && handleGenAIEnd > handleGenAIStart,
+  'Test P3D-C-00: handleGenerateWithAI function isolated successfully in page.tsx'
+);
+const handleGenAISource = pageStudioSourceLatest.slice(handleGenAIStart, handleGenAIEnd);
+
+// P3D-C-01: handleGenerateWithAI calls prepareProductionPackage for carousel
+assert(
+  handleGenAISource.includes("candidate_type === 'carousel'") &&
+  handleGenAISource.includes("prepareProductionPackage({"),
+  'Test P3D-C-01: handleGenerateWithAI calls prepareProductionPackage for Carousel candidate'
+);
+
+// P3D-C-02: handleGenerateWithAI calls saveProductionPackage for carousel
+assert(
+  handleGenAISource.includes("saveProductionPackage(canonicalProjectId, productionPackage)") &&
+  handleGenAISource.includes("asset_type === 'carousel'"),
+  'Test P3D-C-02: handleGenerateWithAI validates asset_type === carousel and calls saveProductionPackage'
+);
+
+// P3D-C-03: Carousel package validation is fail-closed with validateProductionPackage
+assert(
+  handleGenAISource.includes("validateProductionPackage(productionPackage)"),
+  'Test P3D-C-03: Carousel production package invokes validateProductionPackage before persistence'
+);
+
+// P3D-C-04: handleGenerateWithAI calls prepareProductionPackage for video
+assert(
+  handleGenAISource.includes("candidate_type === 'video'") &&
+  handleGenAISource.includes("videoCandidates"),
+  'Test P3D-C-04: handleGenerateWithAI identifies video candidates and calls prepareProductionPackage'
+);
+
+// P3D-C-05: handleGenerateWithAI calls saveProductionPackage for video
+assert(
+  handleGenAISource.includes("asset_type === 'video'") &&
+  handleGenAISource.includes("saveProductionPackage(canonicalProjectId, productionPackage)"),
+  'Test P3D-C-05: handleGenerateWithAI validates asset_type === video and calls saveProductionPackage'
+);
+
+// P3D-C-06: Metadata uses crypto.randomUUID() in Carousel and Video callers
+assert(
+  handleGenAISource.includes("package_id: crypto.randomUUID()"),
+  'Test P3D-C-06: handleGenerateWithAI generates metadata with crypto.randomUUID()'
+);
+
+// P3D-C-07: Carousel and Video packaging strictly use canonicalProjectId and sourceItem
+assert(
+  handleGenAISource.includes("contentItem: sourceItem") &&
+  handleGenAISource.includes("projectId: canonicalProjectId"),
+  'Test P3D-C-07: handleGenerateWithAI strictly uses sourceItem and canonicalProjectId'
+);
+
+// P3D-C-08: handleSelectVideoStyle updates authoritative production package upon style selection
+const handleSelectVideoStart = pageStudioSourceLatest.indexOf('const handleSelectVideoStyle =');
+const handleSelectVideoEnd = pageStudioSourceLatest.indexOf('// Direct image generation state');
+assert(
+  handleSelectVideoStart !== -1 && handleSelectVideoEnd !== -1 && handleSelectVideoEnd > handleSelectVideoStart,
+  'Test P3D-C-08a: handleSelectVideoStyle function isolated successfully in page.tsx'
+);
+const handleSelectVideoSource = pageStudioSourceLatest.slice(handleSelectVideoStart, handleSelectVideoEnd);
+assert(
+  handleSelectVideoSource.includes('prepareProductionPackage') &&
+  handleSelectVideoSource.includes('saveProductionPackage') &&
+  handleSelectVideoSource.includes('targetCandidateId'),
+  'Test P3D-C-08b: handleSelectVideoStyle prepares and saves authoritative production package on selection'
+);
+
 // -------------------------------------------------------------
 // RESULTS SUMMARY
 // -------------------------------------------------------------

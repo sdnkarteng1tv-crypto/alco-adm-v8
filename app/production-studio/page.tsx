@@ -33,7 +33,7 @@ import {
   buildCanonicalVideoScenePlan,
   resolveVideoProductionMode,
 } from '@/lib/production-candidate';
-import { CarouselSlideProductionPlan } from '@/lib/production-contract';
+import { CarouselSlideProductionPlan, validateProductionPackage } from '@/lib/production-contract';
 import { 
   buildFunnelPromptBlock, 
   getFunnelRules, 
@@ -3250,6 +3250,51 @@ export default function ProductionStudioPage() {
 
   const handleSelectVideoStyle = (styleId: 'A' | 'B' | 'C') => {
     setSelectedVideoId(styleId);
+
+    // If authoritative video output exists, prepare and save production package for the selected style
+    if (
+      isAuthoritativeProductionOutputSource(videoOutputSource) &&
+      sourceItem &&
+      sharedContextSnapshot &&
+      funnelStrategySnapshot &&
+      typeof crypto !== 'undefined' &&
+      typeof crypto.randomUUID === 'function'
+    ) {
+      const parsedStyles = tryParseJSON(normalizedVideoOutput);
+      if (Array.isArray(parsedStyles) && parsedStyles.length > 0) {
+        const videoCandidates: VideoProductionCandidate[] = parsedStyles
+          .map((s: any) => s.productionCandidate)
+          .filter((c: any): c is VideoProductionCandidate => Boolean(c && c.candidate_type === 'video'));
+
+        const targetCandidateId = `video_style_${styleId}`;
+        const selectedCandidate = videoCandidates.find((c) => c.candidate_id === targetCandidateId);
+
+        if (selectedCandidate) {
+          const packageMetadata: ProductionPackageMetadata = {
+            package_id: crypto.randomUUID(),
+            created_at: new Date().toISOString(),
+          };
+
+          const prepResult = prepareProductionPackage({
+            projectId: canonicalProjectId,
+            sharedContext: sharedContextSnapshot,
+            funnelStrategy: funnelStrategySnapshot,
+            contentItem: sourceItem,
+            characterDNA: characterDNA || undefined,
+            candidates: videoCandidates,
+            selectedCandidateId: selectedCandidate.candidate_id,
+            metadata: packageMetadata,
+          });
+
+          if (prepResult.ok && prepResult.package && prepResult.package.asset_type === 'video') {
+            const validation = validateProductionPackage(prepResult.package);
+            if (validation.isValid) {
+              saveProductionPackage(canonicalProjectId, prepResult.package);
+            }
+          }
+        }
+      }
+    }
   };
 
   // Direct image generation state
@@ -4127,16 +4172,63 @@ Pastikan evaluasi memeriksa kepatuhan aturan funnel ${funnelStage}:
           const stage2Text = data2.text || '';
           const mergedPlanStr = mergeCarouselPlanStages(stage1Parsed, stage2Text, activeItem, activeContext);
 
-          if (mergedPlanStr) {
+          const chosenPlanStr = mergedPlanStr || normalizedStage1;
+
+          if (chosenPlanStr) {
+            // Replicate authoritative prepare -> validate -> save ProductionPackage flow for Carousel
+            const parsedPlan = tryParseJSON(chosenPlanStr);
+            const carouselCandidate = parsedPlan?.productionCandidate;
+
+            if (carouselCandidate && carouselCandidate.candidate_type === 'carousel') {
+              if (
+                sourceItem &&
+                sharedContextSnapshot &&
+                funnelStrategySnapshot &&
+                typeof crypto !== 'undefined' &&
+                typeof crypto.randomUUID === 'function'
+              ) {
+                const packageMetadata: ProductionPackageMetadata = {
+                  package_id: crypto.randomUUID(),
+                  created_at: new Date().toISOString(),
+                };
+
+                const prepResult = prepareProductionPackage({
+                  projectId: canonicalProjectId,
+                  sharedContext: sharedContextSnapshot,
+                  funnelStrategy: funnelStrategySnapshot,
+                  contentItem: sourceItem,
+                  characterDNA: characterDNA || undefined,
+                  candidates: [carouselCandidate],
+                  selectedCandidateId: carouselCandidate.candidate_id,
+                  metadata: packageMetadata,
+                });
+
+                if (prepResult.ok && prepResult.package) {
+                  const productionPackage = prepResult.package;
+                  if (productionPackage.asset_type === 'carousel') {
+                    const validationResult = validateProductionPackage(productionPackage);
+                    if (validationResult.isValid) {
+                      const saveResult = saveProductionPackage(canonicalProjectId, productionPackage);
+                      if (!saveResult.ok) {
+                        console.warn('[Carousel Package] Warning: saveProductionPackage failed:', saveResult.error);
+                      }
+                    } else {
+                      console.warn('[Carousel Package] Warning: validateProductionPackage failed:', validationResult.error);
+                    }
+                  }
+                } else {
+                  console.warn('[Carousel Package] Warning: prepareProductionPackage failed:', prepResult.error);
+                }
+              }
+            }
+
             setGenerationError(null);
-            saveCarouselOutput(mergedPlanStr);
+            saveCarouselOutput(chosenPlanStr);
             setCarouselOutputSource('generated_output');
-            showToast(`Aset CAROUSEL (2-Stage Blueprint) berhasil dioptimalkan oleh Gemini AI!`);
-          } else if (normalizedStage1) {
-            setGenerationError(null);
-            saveCarouselOutput(normalizedStage1);
-            setCarouselOutputSource('generated_output');
-            showToast(`Aset CAROUSEL Stage 1 Content Plan berhasil disimpan!`);
+            showToast(mergedPlanStr
+              ? `Aset CAROUSEL (2-Stage Blueprint) berhasil dioptimalkan oleh Gemini AI!`
+              : `Aset CAROUSEL Stage 1 Content Plan berhasil disimpan!`
+            );
           } else {
             setGenerationError("Format respon AI tidak valid atau tidak memenuhi skema Carousel canonical. Silakan coba lagi.");
             showToast("Gagal: Format respon AI tidak sesuai skema.");
@@ -4243,6 +4335,59 @@ ${formatDirection}${revisionDirective}`;
           } else if (activeTab === 'video') {
             const normalized = validateAndNormalizeVideoStyles(generatedText, activeItem, activeContext);
             if (normalized) {
+              // Replicate authoritative prepare -> validate -> save ProductionPackage flow for Video
+              const parsedStyles = tryParseJSON(normalized);
+              if (Array.isArray(parsedStyles) && parsedStyles.length > 0) {
+                const videoCandidates: VideoProductionCandidate[] = parsedStyles
+                  .map((s: any) => s.productionCandidate)
+                  .filter((c: any): c is VideoProductionCandidate => Boolean(c && c.candidate_type === 'video'));
+
+                const targetCandidateId = `video_style_${selectedVideoId}`;
+                const selectedCandidate = videoCandidates.find((c) => c.candidate_id === targetCandidateId) || videoCandidates[0];
+
+                if (
+                  selectedCandidate &&
+                  sourceItem &&
+                  sharedContextSnapshot &&
+                  funnelStrategySnapshot &&
+                  typeof crypto !== 'undefined' &&
+                  typeof crypto.randomUUID === 'function'
+                ) {
+                  const packageMetadata: ProductionPackageMetadata = {
+                    package_id: crypto.randomUUID(),
+                    created_at: new Date().toISOString(),
+                  };
+
+                  const prepResult = prepareProductionPackage({
+                    projectId: canonicalProjectId,
+                    sharedContext: sharedContextSnapshot,
+                    funnelStrategy: funnelStrategySnapshot,
+                    contentItem: sourceItem,
+                    characterDNA: characterDNA || undefined,
+                    candidates: videoCandidates,
+                    selectedCandidateId: selectedCandidate.candidate_id,
+                    metadata: packageMetadata,
+                  });
+
+                  if (prepResult.ok && prepResult.package) {
+                    const productionPackage = prepResult.package;
+                    if (productionPackage.asset_type === 'video') {
+                      const validationResult = validateProductionPackage(productionPackage);
+                      if (validationResult.isValid) {
+                        const saveResult = saveProductionPackage(canonicalProjectId, productionPackage);
+                        if (!saveResult.ok) {
+                          console.warn('[Video Package] Warning: saveProductionPackage failed:', saveResult.error);
+                        }
+                      } else {
+                        console.warn('[Video Package] Warning: validateProductionPackage failed:', validationResult.error);
+                      }
+                    }
+                  } else {
+                    console.warn('[Video Package] Warning: prepareProductionPackage failed:', prepResult.error);
+                  }
+                }
+              }
+
               setGenerationError(null);
               saveVideoOutput(normalized);
               setVideoOutputSource('generated_output');
