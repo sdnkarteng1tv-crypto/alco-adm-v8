@@ -27,11 +27,13 @@ import {
   ImageProductionCandidate,
   CarouselProductionCandidate,
   VideoProductionCandidate,
+  VideoProductionMode,
   buildImageProductionCandidate,
   buildCarouselProductionCandidate,
   buildVideoProductionCandidate,
   buildCanonicalVideoScenePlan,
   resolveVideoProductionMode,
+  validateProductionCandidate,
 } from '@/lib/production-candidate';
 import { CarouselSlideProductionPlan, validateProductionPackage } from '@/lib/production-contract';
 import { 
@@ -223,6 +225,7 @@ interface VideoScript {
 
 interface VideoStyle {
   id: 'A' | 'B' | 'C';
+  productionMode?: VideoProductionMode;
   name: string;
   hookStyle: string;
   pacingStyle: string;
@@ -2279,14 +2282,51 @@ function validateAndNormalizeVideoStyles(
     const voiceoverCta = getVoiceoverCtaForFunnel(rawCta, funnelStage);
     const defaultCaptionInstruction = "Paste teks ini di caption/keterangan postingan setelah aset dibuat.";
 
-    const normalizedStyles: VideoStyle[] = rawList.map((v: any, idx: number) => {
-      const id = (v.id === 'A' || v.id === 'B' || v.id === 'C') ? v.id : (idx === 0 ? 'A' : idx === 1 ? 'B' : 'C');
+    const validModes: VideoProductionMode[] = ['human_led', 'product_demo', 'motion_explainer'];
+    const normalizedStyles: VideoStyle[] = [];
+
+    for (let idx = 0; idx < rawList.length; idx++) {
+      const v = rawList[idx];
+      if (!v || typeof v !== 'object') return null;
+
+      // Explicit productionMode resolution without silent fallback
+      let productionMode: VideoProductionMode | null = null;
+      if (v.production_mode && validModes.includes(v.production_mode)) {
+        productionMode = v.production_mode;
+      } else if (v.productionMode && validModes.includes(v.productionMode)) {
+        productionMode = v.productionMode;
+      } else if (v.id && validModes.includes(v.id)) {
+        productionMode = v.id;
+      } else if (v.id) {
+        productionMode = resolveVideoProductionMode(v.id);
+      }
+
+      // If mode is unknown or cannot be mapped, fail-closed (no silent fallback to human_led)
+      if (!productionMode) {
+        return null;
+      }
+
+      const id: 'A' | 'B' | 'C' =
+        v.id === 'A' || v.id === 'B' || v.id === 'C'
+          ? v.id
+          : productionMode === 'human_led'
+          ? 'A'
+          : productionMode === 'product_demo'
+          ? 'B'
+          : productionMode === 'motion_explainer'
+          ? 'C'
+          : idx === 0
+          ? 'A'
+          : idx === 1
+          ? 'B'
+          : 'C';
+
       const name = String(v.name || `Style ${id}`).trim();
       const hookStyle = String(v.hookStyle || v.hook_style || 'Hook pembuka menarik').trim();
       const pacingStyle = String(v.pacingStyle || v.pacing_style || 'Dinamis').trim();
       const audioDirection = String(v.audioDirection || v.audio_direction || 'Natural voiceover & background music').trim();
       const voiceoverOutline = String(v.voiceoverOutline || v.voiceover_outline || '').trim();
-      
+
       const rawScript = v.script || {};
       const script: VideoScript = {
         hook: String(rawScript.hook || activeItem?.headline || 'Pernah merasa begini?').trim(),
@@ -2311,12 +2351,11 @@ function validateAndNormalizeVideoStyles(
 
       const captionInstruction = String(v.captionInstruction || v.caption_instruction || defaultCaptionInstruction).trim() || defaultCaptionInstruction;
 
-      const productionMode = resolveVideoProductionMode(id) || 'human_led';
       const scenes = buildCanonicalVideoScenePlan(funnelStage, productionMode, script);
       const productionCandidate =
-        attachProductionCandidate && productionMode
+        attachProductionCandidate
           ? buildVideoProductionCandidate({
-              candidate_id: `video_style_${id}`,
+              candidate_id: `video_${productionMode}`,
               production_mode: productionMode,
               objective: activeItem?.tujuan || funnelRules.goal || '',
               format: '9:16 Vertical Video (Reels/TikTok/Shorts)',
@@ -2329,8 +2368,16 @@ function validateAndNormalizeVideoStyles(
             })
           : undefined;
 
-      return {
+      if (productionCandidate) {
+        const candidateValidation = validateProductionCandidate(productionCandidate);
+        if (!candidateValidation.isValid) {
+          return null;
+        }
+      }
+
+      normalizedStyles.push({
         id,
+        productionMode,
         name,
         hookStyle,
         pacingStyle,
@@ -2342,8 +2389,10 @@ function validateAndNormalizeVideoStyles(
         captionForPost,
         captionInstruction,
         productionCandidate,
-      };
-    });
+      });
+    }
+
+    if (normalizedStyles.length === 0) return null;
 
     return JSON.stringify(normalizedStyles, null, 2);
   } catch (e) {
@@ -3109,7 +3158,8 @@ Image/Illustration Direction: Clean minimalist social media closing card.`,
       const vStyles = [
         {
           id: "A",
-          name: `Style A: UGC (${funnelStage} Organic)`,
+          productionMode: "human_led" as const,
+          name: `Style A: Human-Led (${funnelStage} Organic)`,
           hookStyle: "Pertanyaan spontan langsung menyentuh masalah utama",
           pacingStyle: "Natural, santai, banyak jeda natural",
           audioDirection: "Suara asli kreator (casual tone) dengan musik latar lofi santai",
@@ -3128,7 +3178,8 @@ Image/Illustration Direction: Clean minimalist social media closing card.`,
         },
         {
           id: "B",
-          name: "Style B: TikTok Loop (Infinite Trick)",
+          productionMode: "product_demo" as const,
+          name: "Style B: Product Demo (Workflow Walkthrough)",
           hookStyle: "Kalimat pembuka menggantung menyambung dari CTA akhir",
           pacingStyle: "Sangat cepat, transisi secepat kilat, ketukan ritmis",
           audioDirection: "Musik up-beat trend TikTok yang catchy dengan sulih suara energik",
@@ -3147,7 +3198,8 @@ Image/Illustration Direction: Clean minimalist social media closing card.`,
         },
         {
           id: "C",
-          name: "Style C: Sinematik (Storytelling)",
+          productionMode: "motion_explainer" as const,
+          name: "Style C: Motion Explainer (Storytelling & Framework)",
           hookStyle: "Pernyataan filosofis tentang alur komunikasi",
           pacingStyle: "Lambat, dramatis, transisi halus, mengedepankan estetika visual",
           audioDirection: "Musik piano instrumental emosional dengan voiceover mendalam dan hangat",
@@ -3250,51 +3302,6 @@ export default function ProductionStudioPage() {
 
   const handleSelectVideoStyle = (styleId: 'A' | 'B' | 'C') => {
     setSelectedVideoId(styleId);
-
-    // If authoritative video output exists, prepare and save production package for the selected style
-    if (
-      isAuthoritativeProductionOutputSource(videoOutputSource) &&
-      sourceItem &&
-      sharedContextSnapshot &&
-      funnelStrategySnapshot &&
-      typeof crypto !== 'undefined' &&
-      typeof crypto.randomUUID === 'function'
-    ) {
-      const parsedStyles = tryParseJSON(normalizedVideoOutput);
-      if (Array.isArray(parsedStyles) && parsedStyles.length > 0) {
-        const videoCandidates: VideoProductionCandidate[] = parsedStyles
-          .map((s: any) => s.productionCandidate)
-          .filter((c: any): c is VideoProductionCandidate => Boolean(c && c.candidate_type === 'video'));
-
-        const targetCandidateId = `video_style_${styleId}`;
-        const selectedCandidate = videoCandidates.find((c) => c.candidate_id === targetCandidateId);
-
-        if (selectedCandidate) {
-          const packageMetadata: ProductionPackageMetadata = {
-            package_id: crypto.randomUUID(),
-            created_at: new Date().toISOString(),
-          };
-
-          const prepResult = prepareProductionPackage({
-            projectId: canonicalProjectId,
-            sharedContext: sharedContextSnapshot,
-            funnelStrategy: funnelStrategySnapshot,
-            contentItem: sourceItem,
-            characterDNA: characterDNA || undefined,
-            candidates: videoCandidates,
-            selectedCandidateId: selectedCandidate.candidate_id,
-            metadata: packageMetadata,
-          });
-
-          if (prepResult.ok && prepResult.package && prepResult.package.asset_type === 'video') {
-            const validation = validateProductionPackage(prepResult.package);
-            if (validation.isValid) {
-              saveProductionPackage(canonicalProjectId, prepResult.package);
-            }
-          }
-        }
-      }
-    }
   };
 
   // Direct image generation state
@@ -3979,8 +3986,12 @@ Kembalikan HANYA JSON murni tanpa markdown pembungkus tambahan di luar JSON.`;
         promptTitle = `CAROUSEL BLUEPRINT - FUNNEL ${funnelStage}`;
         formatDirection = `Blueprint carousel diproses melalui 2-stage architecture (Stage 1 Content Plan + Stage 2 Visual Enrichment).`;
       } else if (activeTab === 'video') {
-        promptTitle = `3 VIDEO STYLE OPTIONS - FUNNEL ${funnelStage} (JSON ARRAY)`;
-        formatDirection = `Hasilkan 3 opsi gaya video (A = UGC, B = TikTok Loop, C = Sinematik) untuk tahap funnel ${funnelStage}.
+        promptTitle = `3 VIDEO PRODUCTION STYLES - FUNNEL ${funnelStage} (JSON ARRAY)`;
+        formatDirection = `Hasilkan exactly 3 opsi gaya video dengan semantic production mode:
+1. "human_led" (Talent/Kreator berbicara di depan kamera / talking head & relatable narrative)
+2. "product_demo" (Demonstrasi layar kerja / alur fitur produk / walkthrough visual UI)
+3. "motion_explainer" (Animasi grafik gerak kinetik, tipografi dinamis & visual diagram terstruktur)
+
 ATURAN FUNNEL ${funnelStage}:
 - Goal: ${funnelRules.goal}
 - Audience State: ${funnelRules.audienceState}
@@ -3989,19 +4000,48 @@ ATURAN FUNNEL ${funnelStage}:
 - CTA Style: ${funnelRules.ctaStyle} (sesuai tahap ${funnelStage})
 - HINDARI: ${funnelRules.avoid}
 
-WAJIB kembalikan HANYA array JSON murni (tanpa markdown):
+WAJIB kembalikan HANYA array JSON murni persis 3 item (tanpa markdown):
 [
   {
     "id": "A",
-    "name": "Style A",
+    "productionMode": "human_led",
+    "name": "Human-Led Creator Style",
     "hookStyle": "...",
     "pacingStyle": "...",
     "audioDirection": "...",
     "voiceoverOutline": "...",
     "script": { "hook": "...", "masalah": "...", "solusi": "...", "proof": "...", "cta": "..." },
-    "videoPrompt": "Prompt deskriptif (Inggris, 9:16)",
+    "videoPrompt": "Prompt deskriptif 9:16 vertical video",
     "visualPlan": "...",
     "captionForPost": "[Tulis caption Instagram yang merangkum video sesuai funnel ${funnelStage}]",
+    "captionInstruction": "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
+  },
+  {
+    "id": "B",
+    "productionMode": "product_demo",
+    "name": "Product Workflow Demo",
+    "hookStyle": "...",
+    "pacingStyle": "...",
+    "audioDirection": "...",
+    "voiceoverOutline": "...",
+    "script": { "hook": "...", "masalah": "...", "solusi": "...", "proof": "...", "cta": "..." },
+    "videoPrompt": "Prompt deskriptif 9:16 vertical video",
+    "visualPlan": "...",
+    "captionForPost": "[Tulis caption Instagram]",
+    "captionInstruction": "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
+  },
+  {
+    "id": "C",
+    "productionMode": "motion_explainer",
+    "name": "Motion Explainer & Framework",
+    "hookStyle": "...",
+    "pacingStyle": "...",
+    "audioDirection": "...",
+    "voiceoverOutline": "...",
+    "script": { "hook": "...", "masalah": "...", "solusi": "...", "proof": "...", "cta": "..." },
+    "videoPrompt": "Prompt deskriptif 9:16 vertical video",
+    "visualPlan": "...",
+    "captionForPost": "[Tulis caption Instagram]",
     "captionInstruction": "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
   }
 ]`;
@@ -4175,53 +4215,6 @@ Pastikan evaluasi memeriksa kepatuhan aturan funnel ${funnelStage}:
           const chosenPlanStr = mergedPlanStr || normalizedStage1;
 
           if (chosenPlanStr) {
-            // Replicate authoritative prepare -> validate -> save ProductionPackage flow for Carousel
-            const parsedPlan = tryParseJSON(chosenPlanStr);
-            const carouselCandidate = parsedPlan?.productionCandidate;
-
-            if (carouselCandidate && carouselCandidate.candidate_type === 'carousel') {
-              if (
-                sourceItem &&
-                sharedContextSnapshot &&
-                funnelStrategySnapshot &&
-                typeof crypto !== 'undefined' &&
-                typeof crypto.randomUUID === 'function'
-              ) {
-                const packageMetadata: ProductionPackageMetadata = {
-                  package_id: crypto.randomUUID(),
-                  created_at: new Date().toISOString(),
-                };
-
-                const prepResult = prepareProductionPackage({
-                  projectId: canonicalProjectId,
-                  sharedContext: sharedContextSnapshot,
-                  funnelStrategy: funnelStrategySnapshot,
-                  contentItem: sourceItem,
-                  characterDNA: characterDNA || undefined,
-                  candidates: [carouselCandidate],
-                  selectedCandidateId: carouselCandidate.candidate_id,
-                  metadata: packageMetadata,
-                });
-
-                if (prepResult.ok && prepResult.package) {
-                  const productionPackage = prepResult.package;
-                  if (productionPackage.asset_type === 'carousel') {
-                    const validationResult = validateProductionPackage(productionPackage);
-                    if (validationResult.isValid) {
-                      const saveResult = saveProductionPackage(canonicalProjectId, productionPackage);
-                      if (!saveResult.ok) {
-                        console.warn('[Carousel Package] Warning: saveProductionPackage failed:', saveResult.error);
-                      }
-                    } else {
-                      console.warn('[Carousel Package] Warning: validateProductionPackage failed:', validationResult.error);
-                    }
-                  }
-                } else {
-                  console.warn('[Carousel Package] Warning: prepareProductionPackage failed:', prepResult.error);
-                }
-              }
-            }
-
             setGenerationError(null);
             saveCarouselOutput(chosenPlanStr);
             setCarouselOutputSource('generated_output');
@@ -4335,59 +4328,6 @@ ${formatDirection}${revisionDirective}`;
           } else if (activeTab === 'video') {
             const normalized = validateAndNormalizeVideoStyles(generatedText, activeItem, activeContext);
             if (normalized) {
-              // Replicate authoritative prepare -> validate -> save ProductionPackage flow for Video
-              const parsedStyles = tryParseJSON(normalized);
-              if (Array.isArray(parsedStyles) && parsedStyles.length > 0) {
-                const videoCandidates: VideoProductionCandidate[] = parsedStyles
-                  .map((s: any) => s.productionCandidate)
-                  .filter((c: any): c is VideoProductionCandidate => Boolean(c && c.candidate_type === 'video'));
-
-                const targetCandidateId = `video_style_${selectedVideoId}`;
-                const selectedCandidate = videoCandidates.find((c) => c.candidate_id === targetCandidateId) || videoCandidates[0];
-
-                if (
-                  selectedCandidate &&
-                  sourceItem &&
-                  sharedContextSnapshot &&
-                  funnelStrategySnapshot &&
-                  typeof crypto !== 'undefined' &&
-                  typeof crypto.randomUUID === 'function'
-                ) {
-                  const packageMetadata: ProductionPackageMetadata = {
-                    package_id: crypto.randomUUID(),
-                    created_at: new Date().toISOString(),
-                  };
-
-                  const prepResult = prepareProductionPackage({
-                    projectId: canonicalProjectId,
-                    sharedContext: sharedContextSnapshot,
-                    funnelStrategy: funnelStrategySnapshot,
-                    contentItem: sourceItem,
-                    characterDNA: characterDNA || undefined,
-                    candidates: videoCandidates,
-                    selectedCandidateId: selectedCandidate.candidate_id,
-                    metadata: packageMetadata,
-                  });
-
-                  if (prepResult.ok && prepResult.package) {
-                    const productionPackage = prepResult.package;
-                    if (productionPackage.asset_type === 'video') {
-                      const validationResult = validateProductionPackage(productionPackage);
-                      if (validationResult.isValid) {
-                        const saveResult = saveProductionPackage(canonicalProjectId, productionPackage);
-                        if (!saveResult.ok) {
-                          console.warn('[Video Package] Warning: saveProductionPackage failed:', saveResult.error);
-                        }
-                      } else {
-                        console.warn('[Video Package] Warning: validateProductionPackage failed:', validationResult.error);
-                      }
-                    }
-                  } else {
-                    console.warn('[Video Package] Warning: prepareProductionPackage failed:', prepResult.error);
-                  }
-                }
-              }
-
               setGenerationError(null);
               saveVideoOutput(normalized);
               setVideoOutputSource('generated_output');

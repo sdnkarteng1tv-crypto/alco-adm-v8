@@ -52,36 +52,42 @@ export function resolveVideoProductionMode(
   id: string
 ): VideoProductionMode | null {
   if (!id || typeof id !== 'string') return null;
-  const cleanId = id.trim().toUpperCase();
+  const cleanId = id.trim().toLowerCase();
   if (
-    cleanId === 'A' ||
-    cleanId.startsWith('STYLE A') ||
-    cleanId.startsWith('STYLE_A') ||
-    cleanId.startsWith('OPTION A') ||
-    cleanId.startsWith('A:') ||
-    cleanId.startsWith('A -')
+    cleanId === 'human_led' ||
+    cleanId === 'video_human_led' ||
+    cleanId === 'a' ||
+    cleanId.startsWith('style a') ||
+    cleanId.startsWith('style_a') ||
+    cleanId.startsWith('option a') ||
+    cleanId.startsWith('a:') ||
+    cleanId.startsWith('a -')
   ) {
     return 'human_led';
   }
   if (
-    cleanId === 'B' ||
-    cleanId.startsWith('STYLE B') ||
-    cleanId.startsWith('STYLE_B') ||
-    cleanId.startsWith('OPTION B') ||
-    cleanId.startsWith('B:') ||
-    cleanId.startsWith('B -')
-  ) {
-    return 'motion_explainer';
-  }
-  if (
-    cleanId === 'C' ||
-    cleanId.startsWith('STYLE C') ||
-    cleanId.startsWith('STYLE_C') ||
-    cleanId.startsWith('OPTION C') ||
-    cleanId.startsWith('C:') ||
-    cleanId.startsWith('C -')
+    cleanId === 'product_demo' ||
+    cleanId === 'video_product_demo' ||
+    cleanId === 'b' ||
+    cleanId.startsWith('style b') ||
+    cleanId.startsWith('style_b') ||
+    cleanId.startsWith('option b') ||
+    cleanId.startsWith('b:') ||
+    cleanId.startsWith('b -')
   ) {
     return 'product_demo';
+  }
+  if (
+    cleanId === 'motion_explainer' ||
+    cleanId === 'video_motion_explainer' ||
+    cleanId === 'c' ||
+    cleanId.startsWith('style c') ||
+    cleanId.startsWith('style_c') ||
+    cleanId.startsWith('option c') ||
+    cleanId.startsWith('c:') ||
+    cleanId.startsWith('c -')
+  ) {
+    return 'motion_explainer';
   }
   return null;
 }
@@ -365,6 +371,15 @@ export function validateProductionCandidate(
         };
       }
 
+      for (const asset of scene.required_assets) {
+        if (typeof asset !== 'string' || asset.trim().length === 0) {
+          return {
+            isValid: false,
+            error: `Scene ${i + 1} required_assets contains empty or whitespace-only asset token.`,
+          };
+        }
+      }
+
       const nonEmptySceneFields: Array<keyof VideoSceneProductionPlan> = [
         'purpose',
         'visual_direction',
@@ -505,7 +520,7 @@ export function buildCarouselProductionCandidate(params: {
  */
 export function buildCanonicalVideoScenePlan(
   funnelStage: FunnelStage,
-  productionMode: VideoProductionMode = 'human_led',
+  productionMode: VideoProductionMode,
   script?: {
     hook?: string;
     masalah?: string;
@@ -514,6 +529,11 @@ export function buildCanonicalVideoScenePlan(
     cta?: string;
   }
 ): VideoSceneProductionPlan[] {
+  const validModes: VideoProductionMode[] = ['human_led', 'product_demo', 'motion_explainer'];
+  if (!productionMode || !validModes.includes(productionMode)) {
+    throw new Error(`Invalid video productionMode: ${productionMode}. Must be 'human_led', 'product_demo', or 'motion_explainer'.`);
+  }
+
   const stage = funnelStage;
   const hookText = script?.hook || '';
   const valueText = script?.solusi || script?.masalah || '';
@@ -636,7 +656,7 @@ export function buildCanonicalVideoScenePlan(
         voiceover: actionText,
         on_screen_text: actionText,
         scene_type: 'end_card',
-        required_assets: [],
+        required_assets: ['logo_reference'],
       },
     ];
   }
@@ -654,7 +674,7 @@ export function buildCanonicalVideoScenePlan(
           voiceover: hookText,
           on_screen_text: hookText,
           scene_type: 'graphic_motion',
-          required_assets: [],
+          required_assets: ['motion_graphic'],
         },
         {
           scene_number: 2,
@@ -678,7 +698,7 @@ export function buildCanonicalVideoScenePlan(
           voiceover: actionText,
           on_screen_text: actionText,
           scene_type: 'end_card',
-          required_assets: [],
+          required_assets: ['end_card_graphic'],
         },
       ];
     }
@@ -694,7 +714,7 @@ export function buildCanonicalVideoScenePlan(
           voiceover: hookText,
           on_screen_text: hookText,
           scene_type: 'graphic_motion',
-          required_assets: [],
+          required_assets: ['motion_graphic'],
         },
         {
           scene_number: 2,
@@ -718,7 +738,7 @@ export function buildCanonicalVideoScenePlan(
           voiceover: actionText,
           on_screen_text: actionText,
           scene_type: 'end_card',
-          required_assets: [],
+          required_assets: ['end_card_graphic'],
         },
       ];
     }
@@ -734,7 +754,7 @@ export function buildCanonicalVideoScenePlan(
         voiceover: hookText,
         on_screen_text: hookText,
         scene_type: 'graphic_motion',
-        required_assets: [],
+        required_assets: ['motion_graphic'],
       },
       {
         scene_number: 2,
@@ -746,7 +766,7 @@ export function buildCanonicalVideoScenePlan(
         voiceover: valueText,
         on_screen_text: valueText,
         scene_type: 'graphic_motion',
-        required_assets: [],
+        required_assets: ['motion_graphic'],
       },
       {
         scene_number: 3,
@@ -758,52 +778,53 @@ export function buildCanonicalVideoScenePlan(
         voiceover: actionText,
         on_screen_text: actionText,
         scene_type: 'end_card',
-        required_assets: [],
+        required_assets: ['end_card_graphic'],
       },
     ];
   }
 
-  // Fallback / Human Led
-  if (stage === 'BOFU') {
-    return [
-      {
-        scene_number: 1,
-        duration_seconds: 5,
-        purpose: 'Proof Hook',
-        visual_direction: 'Talent menunjukkan testimonial atau bukti hasil secara meyakinkan.',
-        action: 'Talent tersenyum percaya diri menyampaikan bukti sosial.',
-        camera: 'Close-up vertikal terang.',
-        voiceover: hookText,
-        on_screen_text: hookText,
-        scene_type: 'talking_head',
-        required_assets: ['character'],
-      },
-      {
-        scene_number: 2,
-        duration_seconds: 7,
-        purpose: 'Offer Benefit',
-        visual_direction: 'Talent merekomendasikan solusi utama dengan mantap.',
-        action: 'Talent memegang produk atau menunjuk penawaran.',
-        camera: 'Medium close-up vertikal.',
-        voiceover: valueText,
-        on_screen_text: valueText,
-        scene_type: 'talking_head',
-        required_assets: ['character'],
-      },
-      {
-        scene_number: 3,
-        duration_seconds: 6,
-        purpose: 'Decision CTA',
-        visual_direction: 'Talent mengarahkan audiens untuk klik tombol CTA.',
-        action: 'Talent tersenyum memberikan isyarat klik link di bio.',
-        camera: 'Medium shot vertikal.',
-        voiceover: actionText,
-        on_screen_text: actionText,
-        scene_type: 'talking_head',
-        required_assets: ['character'],
-      },
-    ];
-  }
+  // Explicit Human Led mode (no silent fallback)
+  if (productionMode === 'human_led') {
+    if (stage === 'BOFU') {
+      return [
+        {
+          scene_number: 1,
+          duration_seconds: 5,
+          purpose: 'Proof Hook',
+          visual_direction: 'Talent menunjukkan testimonial atau bukti hasil secara meyakinkan.',
+          action: 'Talent tersenyum percaya diri menyampaikan bukti sosial.',
+          camera: 'Close-up vertikal terang.',
+          voiceover: hookText,
+          on_screen_text: hookText,
+          scene_type: 'talking_head',
+          required_assets: ['character'],
+        },
+        {
+          scene_number: 2,
+          duration_seconds: 7,
+          purpose: 'Offer Benefit',
+          visual_direction: 'Talent merekomendasikan solusi utama dengan mantap.',
+          action: 'Talent memegang produk atau menunjuk penawaran.',
+          camera: 'Medium close-up vertikal.',
+          voiceover: valueText,
+          on_screen_text: valueText,
+          scene_type: 'talking_head',
+          required_assets: ['character'],
+        },
+        {
+          scene_number: 3,
+          duration_seconds: 6,
+          purpose: 'Decision CTA',
+          visual_direction: 'Talent mengarahkan audiens untuk klik tombol CTA.',
+          action: 'Talent tersenyum memberikan isyarat klik link di bio.',
+          camera: 'Medium shot vertikal.',
+          voiceover: actionText,
+          on_screen_text: actionText,
+          scene_type: 'talking_head',
+          required_assets: ['character'],
+        },
+      ];
+    }
 
   if (stage === 'MOFU') {
     return [
@@ -885,6 +906,9 @@ export function buildCanonicalVideoScenePlan(
       required_assets: ['character'],
     },
   ];
+  }
+
+  throw new Error(`Unhandled video productionMode: ${productionMode}`);
 }
 
 /**

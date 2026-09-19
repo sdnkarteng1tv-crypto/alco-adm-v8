@@ -3828,82 +3828,269 @@ assert(
 );
 
 // =============================================================
-// PHASE 3D-C: CAROUSEL & VIDEO PRODUCTION GATE TESTS
+// PHASE 3D-C1A: VIDEO ARCHITECTURE CLEANUP TESTS (VARCH-A01 - VARCH-A23)
 // =============================================================
 
 // Re-read pageStudioSource in case of updates
 const pageStudioSourceLatest = fs.readFileSync(pageStudioPath, 'utf8');
 
-// Extract handleGenerateWithAI function body for checking Carousel & Video flows
-const handleGenAIStart = pageStudioSourceLatest.indexOf('const handleGenerateWithAI =');
-const handleGenAIEnd = pageStudioSourceLatest.indexOf('const renderTabContent =');
-assert(
-  handleGenAIStart !== -1 && handleGenAIEnd !== -1 && handleGenAIEnd > handleGenAIStart,
-  'Test P3D-C-00: handleGenerateWithAI function isolated successfully in page.tsx'
-);
-const handleGenAISource = pageStudioSourceLatest.slice(handleGenAIStart, handleGenAIEnd);
+// VARCH-A01: Video candidate tanpa production_mode ditolak
+const candNoMode: any = {
+  candidate_id: 'video_test',
+  candidate_type: 'video',
+  objective: 'Test',
+  format: '9:16',
+  hook: 'Hook',
+  scenes: [
+    { scene_number: 1, duration_seconds: 3, role: 'hook', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['talent'] },
+    { scene_number: 2, duration_seconds: 15, role: 'content', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['screen'] },
+    { scene_number: 3, duration_seconds: 5, role: 'cta', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['cta'] },
+  ],
+  production_details: {}
+};
+const resNoMode = validateProductionCandidate(candNoMode);
+assert(!resNoMode.isValid && resNoMode.error?.includes('production_mode'), 'Test VARCH-A01: Video candidate without production_mode is rejected');
 
-// P3D-C-01: handleGenerateWithAI calls prepareProductionPackage for carousel
-assert(
-  handleGenAISource.includes("candidate_type === 'carousel'") &&
-  handleGenAISource.includes("prepareProductionPackage({"),
-  'Test P3D-C-01: handleGenerateWithAI calls prepareProductionPackage for Carousel candidate'
-);
+// VARCH-A02: Video candidate dengan production_mode invalid ditolak
+const candInvalidMode: any = {
+  ...candNoMode,
+  production_details: { production_mode: 'invalid_mode' }
+};
+const resInvalidMode = validateProductionCandidate(candInvalidMode);
+assert(!resInvalidMode.isValid && resInvalidMode.error?.includes('production_mode'), 'Test VARCH-A02: Video candidate with invalid production_mode is rejected');
 
-// P3D-C-02: handleGenerateWithAI calls saveProductionPackage for carousel
-assert(
-  handleGenAISource.includes("saveProductionPackage(canonicalProjectId, productionPackage)") &&
-  handleGenAISource.includes("asset_type === 'carousel'"),
-  'Test P3D-C-02: handleGenerateWithAI validates asset_type === carousel and calls saveProductionPackage'
-);
+// VARCH-A03: Video candidate dengan scenes < 3 ditolak
+const cand2Scenes: any = {
+  ...candNoMode,
+  production_details: { production_mode: 'human_led' },
+  scenes: [
+    { scene_number: 1, duration_seconds: 3, role: 'hook', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['talent'] },
+    { scene_number: 2, duration_seconds: 15, role: 'content', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['screen'] },
+  ]
+};
+const res2Scenes = validateProductionCandidate(cand2Scenes);
+assert(!res2Scenes.isValid && res2Scenes.error?.includes('exactly 3 scenes'), 'Test VARCH-A03: Video candidate with < 3 scenes is rejected');
 
-// P3D-C-03: Carousel package validation is fail-closed with validateProductionPackage
-assert(
-  handleGenAISource.includes("validateProductionPackage(productionPackage)"),
-  'Test P3D-C-03: Carousel production package invokes validateProductionPackage before persistence'
-);
+// VARCH-A04: Video candidate dengan scenes > 3 ditolak
+const cand4Scenes: any = {
+  ...candNoMode,
+  production_details: { production_mode: 'human_led' },
+  scenes: [
+    { scene_number: 1, duration_seconds: 3, role: 'hook', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['talent'] },
+    { scene_number: 2, duration_seconds: 15, role: 'content', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['screen'] },
+    { scene_number: 3, duration_seconds: 5, role: 'cta', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['cta'] },
+    { scene_number: 4, duration_seconds: 5, role: 'outro', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['logo'] },
+  ]
+};
+const res4Scenes = validateProductionCandidate(cand4Scenes);
+assert(!res4Scenes.isValid && res4Scenes.error?.includes('exactly 3 scenes'), 'Test VARCH-A04: Video candidate with > 3 scenes is rejected');
 
-// P3D-C-04: handleGenerateWithAI calls prepareProductionPackage for video
-assert(
-  handleGenAISource.includes("candidate_type === 'video'") &&
-  handleGenAISource.includes("videoCandidates"),
-  'Test P3D-C-04: handleGenerateWithAI identifies video candidates and calls prepareProductionPackage'
-);
+// VARCH-A05: Video candidate dengan exactly 3 scenes diterima
+const cand3Scenes: VideoProductionCandidate = buildVideoProductionCandidate({
+  candidate_id: 'video_human_led',
+  production_mode: 'human_led',
+  objective: 'Test',
+  format: '9:16 Vertical Video',
+  hook: 'Hook',
+  scenes: [
+    { scene_number: 1, duration_seconds: 3, role: 'hook', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['talent'] },
+    { scene_number: 2, duration_seconds: 15, role: 'content', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['screen'] },
+    { scene_number: 3, duration_seconds: 5, role: 'cta', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['cta'] },
+  ],
+  motion_direction: 'fast',
+  audio_direction: 'voiceover',
+});
+const res3Scenes = validateProductionCandidate(cand3Scenes);
+assert(res3Scenes.isValid, 'Test VARCH-A05: Video candidate with exactly 3 scenes is valid');
 
-// P3D-C-05: handleGenerateWithAI calls saveProductionPackage for video
-assert(
-  handleGenAISource.includes("asset_type === 'video'") &&
-  handleGenAISource.includes("saveProductionPackage(canonicalProjectId, productionPackage)"),
-  'Test P3D-C-05: handleGenerateWithAI validates asset_type === video and calls saveProductionPackage'
-);
+// VARCH-A06: Video candidate required_assets dengan empty string ditolak
+const candEmptyAsset: VideoProductionCandidate = {
+  ...cand3Scenes,
+  scenes: [
+    { scene_number: 1, duration_seconds: 3, role: 'hook', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['talent', ''] },
+    { scene_number: 2, duration_seconds: 15, role: 'content', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['screen'] },
+    { scene_number: 3, duration_seconds: 5, role: 'cta', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['cta'] },
+  ]
+};
+const resEmptyAsset = validateProductionCandidate(candEmptyAsset);
+assert(!resEmptyAsset.isValid && resEmptyAsset.error?.includes('non-empty string'), 'Test VARCH-A06: Video candidate with empty string required_assets is rejected');
 
-// P3D-C-06: Metadata uses crypto.randomUUID() in Carousel and Video callers
-assert(
-  handleGenAISource.includes("package_id: crypto.randomUUID()"),
-  'Test P3D-C-06: handleGenerateWithAI generates metadata with crypto.randomUUID()'
-);
+// VARCH-A07: Video candidate semantic ID video_human_led valid
+const candHumanLed = buildVideoProductionCandidate({
+  candidate_id: 'video_human_led',
+  production_mode: 'human_led',
+  objective: 'Obj',
+  format: '9:16',
+  hook: 'Hook',
+  scenes: buildCanonicalVideoScenePlan('TOFU', 'human_led', { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' }),
+  motion_direction: 'pacing',
+  audio_direction: 'audio',
+});
+assert(validateProductionCandidate(candHumanLed).isValid && candHumanLed.candidate_id === 'video_human_led', 'Test VARCH-A07: Video candidate semantic ID video_human_led is valid');
 
-// P3D-C-07: Carousel and Video packaging strictly use canonicalProjectId and sourceItem
-assert(
-  handleGenAISource.includes("contentItem: sourceItem") &&
-  handleGenAISource.includes("projectId: canonicalProjectId"),
-  'Test P3D-C-07: handleGenerateWithAI strictly uses sourceItem and canonicalProjectId'
-);
+// VARCH-A08: Video candidate semantic ID video_product_demo valid
+const candProdDemo = buildVideoProductionCandidate({
+  candidate_id: 'video_product_demo',
+  production_mode: 'product_demo',
+  objective: 'Obj',
+  format: '9:16',
+  hook: 'Hook',
+  scenes: buildCanonicalVideoScenePlan('MOFU', 'product_demo', { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' }),
+  motion_direction: 'pacing',
+  audio_direction: 'audio',
+});
+assert(validateProductionCandidate(candProdDemo).isValid && candProdDemo.candidate_id === 'video_product_demo', 'Test VARCH-A08: Video candidate semantic ID video_product_demo is valid');
 
-// P3D-C-08: handleSelectVideoStyle updates authoritative production package upon style selection
+// VARCH-A09: Video candidate semantic ID video_motion_explainer valid
+const candMotion = buildVideoProductionCandidate({
+  candidate_id: 'video_motion_explainer',
+  production_mode: 'motion_explainer',
+  objective: 'Obj',
+  format: '9:16',
+  hook: 'Hook',
+  scenes: buildCanonicalVideoScenePlan('BOFU', 'motion_explainer', { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' }),
+  motion_direction: 'pacing',
+  audio_direction: 'audio',
+});
+assert(validateProductionCandidate(candMotion).isValid && candMotion.candidate_id === 'video_motion_explainer', 'Test VARCH-A09: Video candidate semantic ID video_motion_explainer is valid');
+
+// VARCH-A10: buildCanonicalVideoScenePlan menghasilkan exactly 3 scenes untuk human_led
+const humanLedScenes = buildCanonicalVideoScenePlan('TOFU', 'human_led', { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' });
+assert(humanLedScenes.length === 3 && humanLedScenes[0].required_assets.length > 0, 'Test VARCH-A10: buildCanonicalVideoScenePlan produces exactly 3 scenes for human_led');
+
+// VARCH-A11: buildCanonicalVideoScenePlan menghasilkan exactly 3 scenes untuk product_demo
+const demoScenes = buildCanonicalVideoScenePlan('MOFU', 'product_demo', { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' });
+assert(demoScenes.length === 3 && demoScenes[0].required_assets.length > 0, 'Test VARCH-A11: buildCanonicalVideoScenePlan produces exactly 3 scenes for product_demo');
+
+// VARCH-A12: buildCanonicalVideoScenePlan menghasilkan exactly 3 scenes untuk motion_explainer
+const motionScenes = buildCanonicalVideoScenePlan('BOFU', 'motion_explainer', { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' });
+assert(motionScenes.length === 3 && motionScenes[0].required_assets.length > 0, 'Test VARCH-A12: buildCanonicalVideoScenePlan produces exactly 3 scenes for motion_explainer');
+
+// VARCH-A13: buildCanonicalVideoScenePlan tanpa fallback mode throws error jika mode invalid
+let errorThrown = false;
+try {
+  buildCanonicalVideoScenePlan('TOFU', 'invalid_mode' as any, { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' });
+} catch (e: any) {
+  errorThrown = true;
+}
+assert(errorThrown, 'Test VARCH-A13: buildCanonicalVideoScenePlan without valid mode throws error (fail-closed, no silent fallback)');
+
+// VARCH-A14: validateProductionPackage menolak video package dengan scenes != 3
+const baseVideoPkg: any = {
+  package_id: 'pkg_video_1',
+  project_id: 'proj_1',
+  created_at: new Date().toISOString(),
+  asset_type: 'video',
+  strategy_snapshot: { funnel_stage: 'TOFU', campaign_objective: 'Obj', target_audience: 'Aud', core_angle: 'Ang' },
+  content_snapshot: { title: 'Title', script_or_copy: 'Script', primary_cta: 'CTA', hashtags: [] },
+  brand_visual_snapshot: { brand_name: 'Brand', primary_color: '#000', visual_style: 'Clean' },
+  production_payload: {
+    production_mode: 'human_led',
+    motion_direction: 'fast',
+    audio_direction: 'voiceover',
+    scenes: [
+      { scene_number: 1, duration_seconds: 3, role: 'hook', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['talent'] },
+      { scene_number: 2, duration_seconds: 15, role: 'content', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['screen'] },
+    ]
+  }
+};
+const resPkg2Scenes = validateProductionPackage(baseVideoPkg);
+assert(!resPkg2Scenes.isValid && resPkg2Scenes.error?.includes('exactly 3 scenes'), 'Test VARCH-A14: validateProductionPackage rejects video package with scenes != 3');
+
+// VARCH-A15: validateProductionPackage menolak video package dengan production_mode invalid
+const pkgInvalidMode: any = {
+  ...baseVideoPkg,
+  production_payload: {
+    ...baseVideoPkg.production_payload,
+    production_mode: 'unknown_mode',
+    scenes: [
+      { scene_number: 1, duration_seconds: 3, role: 'hook', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['talent'] },
+      { scene_number: 2, duration_seconds: 15, role: 'content', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['screen'] },
+      { scene_number: 3, duration_seconds: 5, role: 'cta', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['cta'] },
+    ]
+  }
+};
+const resPkgInvalidMode = validateProductionPackage(pkgInvalidMode);
+assert(!resPkgInvalidMode.isValid && resPkgInvalidMode.error?.includes('production_mode'), 'Test VARCH-A15: validateProductionPackage rejects video package with invalid production_mode');
+
+// VARCH-A16: validateProductionPackage menolak video package dengan scene required_assets berisi empty string
+const pkgEmptyAsset: any = {
+  ...baseVideoPkg,
+  production_payload: {
+    ...baseVideoPkg.production_payload,
+    scenes: [
+      { scene_number: 1, duration_seconds: 3, role: 'hook', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['talent', '   '] },
+      { scene_number: 2, duration_seconds: 15, role: 'content', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['screen'] },
+      { scene_number: 3, duration_seconds: 5, role: 'cta', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['cta'] },
+    ]
+  }
+};
+const resPkgEmptyAsset = validateProductionPackage(pkgEmptyAsset);
+assert(!resPkgEmptyAsset.isValid && resPkgEmptyAsset.error?.includes('non-empty string'), 'Test VARCH-A16: validateProductionPackage rejects video package with empty string required_assets');
+
+// VARCH-A17: handleSelectVideoStyle tidak lagi memanggil saveProductionPackage
 const handleSelectVideoStart = pageStudioSourceLatest.indexOf('const handleSelectVideoStyle =');
 const handleSelectVideoEnd = pageStudioSourceLatest.indexOf('// Direct image generation state');
 assert(
   handleSelectVideoStart !== -1 && handleSelectVideoEnd !== -1 && handleSelectVideoEnd > handleSelectVideoStart,
-  'Test P3D-C-08a: handleSelectVideoStyle function isolated successfully in page.tsx'
+  'Test VARCH-A17a: handleSelectVideoStyle function isolated successfully in page.tsx'
 );
 const handleSelectVideoSource = pageStudioSourceLatest.slice(handleSelectVideoStart, handleSelectVideoEnd);
 assert(
-  handleSelectVideoSource.includes('prepareProductionPackage') &&
-  handleSelectVideoSource.includes('saveProductionPackage') &&
-  handleSelectVideoSource.includes('targetCandidateId'),
-  'Test P3D-C-08b: handleSelectVideoStyle prepares and saves authoritative production package on selection'
+  !handleSelectVideoSource.includes('saveProductionPackage') &&
+  !handleSelectVideoSource.includes('prepareProductionPackage') &&
+  handleSelectVideoSource.includes('setSelectedVideoId(styleId);'),
+  'Test VARCH-A17b: handleSelectVideoStyle only sets selectedVideoId and does not call saveProductionPackage or prepareProductionPackage'
 );
+
+// VARCH-A18 & VARCH-A19: handleGenerateWithAI video and carousel branches do not call saveProductionPackage
+const handleGenAIStart = pageStudioSourceLatest.indexOf('const handleGenerateWithAI =');
+const handleGenAIEnd = pageStudioSourceLatest.indexOf('const renderTabContent =');
+assert(
+  handleGenAIStart !== -1 && handleGenAIEnd !== -1 && handleGenAIEnd > handleGenAIStart,
+  'Test VARCH-A18a: handleGenerateWithAI function isolated successfully in page.tsx'
+);
+const handleGenAISource = pageStudioSourceLatest.slice(handleGenAIStart, handleGenAIEnd);
+assert(
+  !handleGenAISource.includes("saveProductionPackage(canonicalProjectId, productionPackage)"),
+  'Test VARCH-A18b & VARCH-A19: handleGenerateWithAI does not call saveProductionPackage for video or carousel'
+);
+
+// VARCH-A20: validateAndNormalizeVideoStyles menghasilkan candidate_id semantik
+assert(
+  pageStudioSourceLatest.includes("candidate_id: `video_${productionMode}`"),
+  'Test VARCH-A20: validateAndNormalizeVideoStyles uses semantic candidate_id (video_${productionMode})'
+);
+
+// VARCH-A21: validateAndNormalizeVideoStyles tidak silent fallback ke human_led jika mode tidak diketahui dan tidak dapat dipetakan
+assert(
+  !pageStudioSourceLatest.includes("resolveVideoProductionMode(id) || 'human_led'") &&
+  pageStudioSourceLatest.includes("if (!productionMode) {\n        return null;"),
+  'Test VARCH-A21: validateAndNormalizeVideoStyles fails closed without silent fallback to human_led'
+);
+
+// VARCH-A22: Initial video draft menggunakan semantic productionMode
+assert(
+  pageStudioSourceLatest.includes('productionMode: "human_led"') &&
+  pageStudioSourceLatest.includes('productionMode: "product_demo"') &&
+  pageStudioSourceLatest.includes('productionMode: "motion_explainer"'),
+  'Test VARCH-A22: Initial video draft uses semantic productionMode values'
+);
+
+// VARCH-A23: Exactly 3 scenes contract dipatuhi end-to-end
+const validVideoPkg: any = {
+  ...baseVideoPkg,
+  production_payload: {
+    ...baseVideoPkg.production_payload,
+    scenes: [
+      { scene_number: 1, duration_seconds: 3, role: 'hook', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['talent'] },
+      { scene_number: 2, duration_seconds: 15, role: 'content', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['screen'] },
+      { scene_number: 3, duration_seconds: 5, role: 'cta', visual_cue: 'vc', dialogue_or_caption: 'd', required_assets: ['cta'] },
+    ]
+  }
+};
+const resValidPkg = validateProductionPackage(validVideoPkg);
+assert(resValidPkg.isValid, 'Test VARCH-A23: Exactly 3 scenes contract is respected end-to-end');
 
 // -------------------------------------------------------------
 // RESULTS SUMMARY

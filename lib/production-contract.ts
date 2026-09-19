@@ -613,8 +613,8 @@ export function validateProductionPackage(pkg: any): { isValid: boolean; error?:
     if (typeof vidPkg.video.duration_seconds !== 'number' || !Number.isFinite(vidPkg.video.duration_seconds) || vidPkg.video.duration_seconds <= 0) {
       return { isValid: false, error: 'video.duration_seconds must be a positive finite number.' };
     }
-    if (!Array.isArray(vidPkg.video.scenes) || vidPkg.video.scenes.length === 0) {
-      return { isValid: false, error: 'VideoProductionPackage must contain at least one scene in video.scenes.' };
+    if (!Array.isArray(vidPkg.video.scenes) || vidPkg.video.scenes.length !== 3) {
+      return { isValid: false, error: `video.scenes count (${Array.isArray(vidPkg.video.scenes) ? vidPkg.video.scenes.length : 0}) must be exactly 3 in VideoProductionPackage.` };
     }
 
     const seenSceneNumbers = new Set<number>();
@@ -664,6 +664,15 @@ export function validateProductionPackage(pkg: any): { isValid: boolean; error?:
           isValid: false,
           error: `video.scenes[${i}].required_assets must be a valid array of strings.`,
         };
+      }
+
+      for (const asset of scene.required_assets) {
+        if (typeof asset !== 'string' || asset.trim().length === 0) {
+          return {
+            isValid: false,
+            error: `video.scenes[${i}].required_assets contains empty or whitespace-only asset token.`,
+          };
+        }
       }
 
       const nonEmptySceneFields: (keyof VideoSceneProductionPlan)[] = [
