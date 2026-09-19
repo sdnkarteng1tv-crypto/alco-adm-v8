@@ -69,13 +69,20 @@ export default function VideoPanel(props: any) {
     );
   }
 
-  const activeVideo =
-    videoStyles.find(
-      (v) => selectedVideoProductionMode && v.productionMode === selectedVideoProductionMode
-    ) || videoStyles[0];
-  const videoFunnelStage = normalizeFunnelStage(activeItem.jenis);
+  const activeVideo = videoStyles.find(
+    (v) => v.productionMode === selectedVideoProductionMode
+  );
 
-  const activeStyleKey = activeVideo.productionMode || 'human_led';
+  if (!activeVideo) {
+    return (
+      <div className="p-8 text-center bg-[#fcfbf9] border border-[#e7e0d4] rounded-2xl text-muted-foreground text-sm font-medium font-sans">
+        Rencana video untuk jenis ini belum tersedia. Buat ulang rencana video agar mode produksi sesuai.
+      </div>
+    );
+  }
+
+  const videoFunnelStage = normalizeFunnelStage(activeItem.jenis);
+  const activeStyleKey = activeVideo.productionMode;
 
   const googleFlowScenes = getGoogleFlowVideoPack(
     videoFunnelStage,

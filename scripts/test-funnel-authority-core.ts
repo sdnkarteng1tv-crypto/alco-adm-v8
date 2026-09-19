@@ -2726,7 +2726,7 @@ assert(
 );
 
 const validVideoCand = buildVideoProductionCandidate({
-  candidate_id: 'video_style_A',
+  candidate_id: getVideoCandidateId('human_led'),
   production_mode: 'human_led',
   objective: 'Video goal',
   format: '9:16 Vertical Video (Reels/TikTok/Shorts)',
@@ -2798,7 +2798,7 @@ assert(
 // P3C-A-28: Studio page.tsx normalizers accept attachProductionCandidate flag and use getVideoCandidateId
 assert(
   studioPageContent.includes('attachProductionCandidate: boolean = true') &&
-  studioPageContent.includes('getVideoCandidateId(v.productionMode)'),
+  studioPageContent.includes('getVideoCandidateId(productionMode)'),
   'Test P3C-A-28: Production Studio normalizers accept attachProductionCandidate flag and use getVideoCandidateId'
 );
 
@@ -2850,8 +2850,8 @@ assert(
 
 // P3C-A-33: Studio page.tsx uses semantic mode and guards candidate creation
 assert(
-  studioPageContent.includes('getVideoCandidateId(v.productionMode)') &&
-  studioPageContent.includes('attachProductionCandidate && v.productionMode'),
+  studioPageContent.includes('getVideoCandidateId(productionMode)') &&
+  studioPageContent.includes('attachProductionCandidate ? buildVideoProductionCandidate'),
   'Test P3C-A-33: Production Studio guards video candidate creation fail-closed on valid productionMode'
 );
 
@@ -3842,9 +3842,9 @@ const candNoMode: any = {
   format: '9:16',
   hook: 'Hook',
   scenes: [
-    { scene_number: 1, duration_seconds: 3, role: 'hook', scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['talent'] },
-    { scene_number: 2, duration_seconds: 15, role: 'content', scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['screen'] },
-    { scene_number: 3, duration_seconds: 5, role: 'cta', scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['cta'] },
+    { scene_number: 1, duration_seconds: 3, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['talent'] },
+    { scene_number: 2, duration_seconds: 15, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['screen'] },
+    { scene_number: 3, duration_seconds: 5, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['cta'] },
   ],
   production_details: {}
 };
@@ -3873,8 +3873,8 @@ const cand2Scenes: any = {
     audio_direction: 'Aud',
     negative_constraints: 'Neg',
     scenes: [
-      { scene_number: 1, duration_seconds: 3, role: 'hook', scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['talent'] },
-      { scene_number: 2, duration_seconds: 15, role: 'content', scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['screen'] },
+      { scene_number: 1, duration_seconds: 3, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['talent'] },
+      { scene_number: 2, duration_seconds: 15, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['screen'] },
     ]
   },
   final_prompt: 'prompt'
@@ -3896,10 +3896,10 @@ const cand4Scenes: any = {
     audio_direction: 'Aud',
     negative_constraints: 'Neg',
     scenes: [
-      { scene_number: 1, duration_seconds: 3, role: 'hook', scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['talent'] },
-      { scene_number: 2, duration_seconds: 15, role: 'content', scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['screen'] },
-      { scene_number: 3, duration_seconds: 5, role: 'cta', scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['cta'] },
-      { scene_number: 4, duration_seconds: 5, role: 'outro', scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['logo'] },
+      { scene_number: 1, duration_seconds: 3, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['talent'] },
+      { scene_number: 2, duration_seconds: 15, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['screen'] },
+      { scene_number: 3, duration_seconds: 5, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['cta'] },
+      { scene_number: 4, duration_seconds: 5, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['logo'] },
     ]
   },
   final_prompt: 'prompt'
@@ -3915,12 +3915,14 @@ const cand3Scenes: VideoProductionCandidate = buildVideoProductionCandidate({
   format: '9:16 Vertical Video',
   hook: 'Hook',
   scenes: [
-    { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Hook pembuka', visual_direction: 'Talent framing', action: 'Talent berbicara', camera: 'Close up', required_assets: ['talent', 'headset'] },
-    { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Inti edukasi', visual_direction: 'Talent demo', action: 'Talent menjelaskan', camera: 'Medium shot', required_assets: ['talent', 'workspace'] },
-    { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Call to action', visual_direction: 'Talent closing', action: 'Talent mengajak', camera: 'Medium close up', required_assets: ['talent', 'cta_button'] },
+    { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Hook pembuka', visual_direction: 'Talent framing', action: 'Talent berbicara', camera: 'Close up', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['talent', 'headset'] },
+    { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Inti edukasi', visual_direction: 'Talent demo', action: 'Talent menjelaskan', camera: 'Medium shot', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['talent', 'workspace'] },
+    { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Call to action', visual_direction: 'Talent closing', action: 'Talent mengajak', camera: 'Medium close up', voiceover: 'vo3', on_screen_text: 'txt3', required_assets: ['talent', 'cta_button'] },
   ],
   motion_direction: 'Dynamic talking head pacing',
   audio_direction: 'Indonesian voiceover',
+  negative_constraints: 'No blurry frames, no bad quality',
+  final_prompt: 'Prompt',
 });
 const res3Scenes = validateProductionCandidate(cand3Scenes);
 assert(res3Scenes.isValid, 'Test VARCH-A05: Video candidate with exactly 3 scenes is valid');
@@ -3931,9 +3933,9 @@ const candEmptyAsset: VideoProductionCandidate = {
   production_details: {
     ...cand3Scenes.production_details,
     scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Hook', visual_direction: 'VD', action: 'Act', camera: 'Cam', required_assets: ['talent', '  '] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Body', visual_direction: 'VD', action: 'Act', camera: 'Cam', required_assets: ['talent'] },
-      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'CTA', visual_direction: 'VD', action: 'Act', camera: 'Cam', required_assets: ['talent'] },
+      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Hook', visual_direction: 'VD', action: 'Act', camera: 'Cam', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['talent', '  '] },
+      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'Body', visual_direction: 'VD', action: 'Act', camera: 'Cam', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['talent'] },
+      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'CTA', visual_direction: 'VD', action: 'Act', camera: 'Cam', voiceover: 'vo', on_screen_text: 'txt', required_assets: ['talent'] },
     ]
   }
 };
@@ -3950,6 +3952,8 @@ const candHumanLed = buildVideoProductionCandidate({
   scenes: buildCanonicalVideoScenePlan('TOFU', 'human_led', { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' }),
   motion_direction: 'pacing',
   audio_direction: 'audio',
+  negative_constraints: 'No artifacts',
+  final_prompt: 'Prompt',
 });
 assert(validateProductionCandidate(candHumanLed).isValid && candHumanLed.candidate_id === 'video_human_led', 'Test VARCH-A07: Video candidate semantic ID video_human_led is valid');
 
@@ -3963,6 +3967,8 @@ const candProdDemo = buildVideoProductionCandidate({
   scenes: buildCanonicalVideoScenePlan('MOFU', 'product_demo', { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' }),
   motion_direction: 'pacing',
   audio_direction: 'audio',
+  negative_constraints: 'No artifacts',
+  final_prompt: 'Prompt',
 });
 assert(validateProductionCandidate(candProdDemo).isValid && candProdDemo.candidate_id === 'video_product_demo', 'Test VARCH-A08: Video candidate semantic ID video_product_demo is valid');
 
@@ -3976,6 +3982,8 @@ const candMotion = buildVideoProductionCandidate({
   scenes: buildCanonicalVideoScenePlan('BOFU', 'motion_explainer', { hook: 'h', masalah: 'm', solusi: 's', proof: 'p', cta: 'c' }),
   motion_direction: 'pacing',
   audio_direction: 'audio',
+  negative_constraints: 'No artifacts',
+  final_prompt: 'Prompt',
 });
 assert(validateProductionCandidate(candMotion).isValid && candMotion.candidate_id === 'video_motion_explainer', 'Test VARCH-A09: Video candidate semantic ID video_motion_explainer is valid');
 
@@ -4019,18 +4027,48 @@ assert(errorThrown, 'Test VARCH-A13: buildCanonicalVideoScenePlan without valid 
 const baseVideoPkg: any = {
   package_id: 'pkg_video_1',
   project_id: 'proj_1',
+  content_item_id: 'item_1',
+  funnel_stage: 'TOFU',
+  production_status: 'ready_for_production',
   created_at: new Date().toISOString(),
   asset_type: 'video',
-  strategy_snapshot: { funnel_stage: 'TOFU', campaign_objective: 'Obj', target_audience: 'Aud', core_angle: 'Ang' },
-  content_snapshot: { title: 'Title', script_or_copy: 'Script', primary_cta: 'CTA', hashtags: [] },
-  brand_visual_snapshot: { brand_name: 'Brand', primary_color: '#000', visual_style: 'Clean' },
-  production_payload: {
+  strategy_snapshot: {
+    brand_name: 'Brand',
+    primary_audience: 'Audience',
+    main_offer: 'Offer',
+    core_message: 'Message',
+    funnel_stage: 'TOFU',
+    campaign_objective: 'Obj',
+    target_audience: 'Aud',
+    core_angle: 'Ang'
+  },
+  content_snapshot: {
+    hook: 'Hook',
+    core_content: 'Content',
+    title: 'Title',
+    script_or_copy: 'Script',
+    primary_cta: 'CTA',
+    hashtags: []
+  },
+  brand_visual_snapshot: {
+    brand_name: 'Brand',
+    primary_color: '#000',
+    visual_style: 'Clean'
+  },
+  final_prompt: 'Video prompt',
+  video: {
     production_mode: 'human_led',
+    objective: 'Obj',
+    format: '9:16',
+    hook: 'Hook',
+    camera_direction: 'Cam',
     motion_direction: 'fast',
     audio_direction: 'voiceover',
+    negative_constraints: 'No artifacts',
+    duration_seconds: 24,
     scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['talent'] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['screen'] },
+      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['talent'] },
+      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
     ]
   }
 };
@@ -4040,13 +4078,13 @@ assert(!resPkg2Scenes.isValid && resPkg2Scenes.error?.includes('must be exactly 
 // VARCH-A15: validateProductionPackage menolak video package dengan production_mode invalid
 const pkgInvalidMode: any = {
   ...baseVideoPkg,
-  production_payload: {
-    ...baseVideoPkg.production_payload,
+  video: {
+    ...baseVideoPkg.video,
     production_mode: 'unknown_mode',
     scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['talent'] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['screen'] },
-      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['cta'] },
+      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['talent'] },
+      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
+      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo3', on_screen_text: 'txt3', required_assets: ['cta'] },
     ]
   }
 };
@@ -4056,12 +4094,12 @@ assert(!resPkgInvalidMode.isValid && resPkgInvalidMode.error?.includes('producti
 // VARCH-A16: validateProductionPackage menolak video package dengan scene required_assets berisi empty string
 const pkgEmptyAsset: any = {
   ...baseVideoPkg,
-  production_payload: {
-    ...baseVideoPkg.production_payload,
+  video: {
+    ...baseVideoPkg.video,
     scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['talent', '   '] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['screen'] },
-      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['cta'] },
+      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['talent', '   '] },
+      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
+      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo3', on_screen_text: 'txt3', required_assets: ['cta'] },
     ]
   }
 };
@@ -4071,13 +4109,13 @@ assert(!resPkgEmptyAsset.isValid && resPkgEmptyAsset.error?.includes('required_a
 // VARCH-A17: validateProductionPackage rejects video package whose scenes do not match its production_mode
 const pkgMismatchedMode: any = {
   ...baseVideoPkg,
-  production_payload: {
-    ...baseVideoPkg.production_payload,
+  video: {
+    ...baseVideoPkg.video,
     production_mode: 'human_led',
     scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'product_screen', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['screen'] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'product_screen', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['screen'] },
-      { scene_number: 3, duration_seconds: 8, scene_type: 'product_screen', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['cta'] },
+      { scene_number: 1, duration_seconds: 8, scene_type: 'product_screen', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['screen'] },
+      { scene_number: 2, duration_seconds: 8, scene_type: 'product_screen', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
+      { scene_number: 3, duration_seconds: 8, scene_type: 'product_screen', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo3', on_screen_text: 'txt3', required_assets: ['cta'] },
     ]
   }
 };
@@ -4114,22 +4152,22 @@ assert(
 
 // VARCH-A20: validateAndNormalizeVideoStyles menghasilkan candidate_id semantik
 assert(
-  pageStudioSourceLatest.includes("candidate_id: getVideoCandidateId(v.productionMode)"),
+  pageStudioSourceLatest.includes("candidate_id: getVideoCandidateId(productionMode)"),
   'Test VARCH-A20: validateAndNormalizeVideoStyles uses semantic candidate_id via getVideoCandidateId'
 );
 
 // VARCH-A21: validateAndNormalizeVideoStyles tidak silent fallback ke human_led jika mode tidak diketahui dan tidak dapat dipetakan
 assert(
   !pageStudioSourceLatest.includes("resolveVideoProductionMode") &&
-  pageStudioSourceLatest.includes("if (!productionMode) {\n        return null;"),
+  pageStudioSourceLatest.includes("const rawMode = v.productionMode ?? v.production_mode;"),
   'Test VARCH-A21: validateAndNormalizeVideoStyles fails closed without silent fallback to human_led'
 );
 
 // VARCH-A22: validateAndNormalizeVideoStyles covers all 3 canonical production modes
 assert(
-  pageStudioSourceLatest.includes('productionMode: "human_led"') &&
-  pageStudioSourceLatest.includes('productionMode: "product_demo"') &&
-  pageStudioSourceLatest.includes('productionMode: "motion_explainer"'),
+  pageStudioSourceLatest.includes('productionMode === \'human_led\'') &&
+  pageStudioSourceLatest.includes('productionMode === \'product_demo\'') &&
+  pageStudioSourceLatest.includes('rawMode !== \'motion_explainer\''),
   'Test VARCH-A22: validateAndNormalizeVideoStyles covers human_led, product_demo, motion_explainer'
 );
 
@@ -4146,19 +4184,19 @@ const videoPanelPath = path.join(projectRoot, 'components', 'production-studio',
 const videoPanelSource = fs.readFileSync(videoPanelPath, 'utf8');
 assert(
   videoPanelSource.includes('selectedVideoProductionMode') &&
-  videoPanelSource.includes('activeStyleKey'),
+  videoPanelSource.includes('activeStyleKey = activeVideo.productionMode'),
   'Test VARCH-A24: VideoPanel supports selectedVideoProductionMode and semantic mode selection'
 );
 
 // VARCH-A25: Exactly 3 scenes contract dipatuhi end-to-end dengan valid video package
 const validVideoPkg: any = {
   ...baseVideoPkg,
-  production_payload: {
-    ...baseVideoPkg.production_payload,
+  video: {
+    ...baseVideoPkg.video,
     scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['talent'] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['screen'] },
-      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', required_assets: ['cta'] },
+      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['talent'] },
+      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
+      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo3', on_screen_text: 'txt3', required_assets: ['cta'] },
     ]
   }
 };

@@ -232,6 +232,7 @@ interface VideoStyle {
   script: VideoScript;
   videoPrompt: string;
   visualPlan: string;
+  negativeConstraints: string;
   captionForPost?: string;
   captionInstruction?: string;
   productionCandidate?: VideoProductionCandidate;
@@ -2289,19 +2290,15 @@ function validateAndNormalizeVideoStyles(
       if (!v || typeof v !== 'object') return null;
 
       // Strict semantic productionMode validation - fail closed without legacy fallback
-      let productionMode: VideoProductionMode | null = null;
-      if (v.production_mode && validModes.includes(v.production_mode)) {
-        productionMode = v.production_mode;
-      } else if (v.productionMode && validModes.includes(v.productionMode)) {
-        productionMode = v.productionMode;
-      } else if (v.id && validModes.includes(v.id)) {
-        productionMode = v.id;
-      }
-
-      // If mode is unknown or cannot be mapped, fail-closed (no silent fallback to human_led)
-      if (!productionMode) {
+      const rawMode = v.productionMode ?? v.production_mode;
+      if (
+        rawMode !== 'human_led' &&
+        rawMode !== 'product_demo' &&
+        rawMode !== 'motion_explainer'
+      ) {
         return null;
       }
+      const productionMode: VideoProductionMode = rawMode;
 
       if (seenModes.has(productionMode)) {
         return null; // Reject duplicate modes
@@ -2335,6 +2332,10 @@ function validateAndNormalizeVideoStyles(
         v.negativeConstraints ??
         ''
       ).trim();
+
+      if (!videoNegativeConstraints) {
+        return null;
+      }
       const visualPlan = String(v.visualPlan || v.visual_plan || '').trim();
 
       let captionForPost = String(v.captionForPost || v.caption_for_post || '').trim();
@@ -2379,6 +2380,7 @@ function validateAndNormalizeVideoStyles(
         script,
         videoPrompt,
         visualPlan,
+        negativeConstraints: videoNegativeConstraints,
         captionForPost,
         captionInstruction,
         productionCandidate,
@@ -3165,6 +3167,7 @@ Image/Illustration Direction: Clean minimalist social media closing card.`,
           },
           videoPrompt: "A friendly creator looking at their laptop screen, showing surprise and happiness, warm aesthetic home office, soft background, vertical 9:16.",
           visualPlan: `0-5s: Talent close-up penasaran. 5-15s: Tampilkan rekaman layar dasbor alur konten ${funnelStage}. 15-25s: Penjelasan visual strategi. 25-30s: Tampilan CTA ${safeCta}.`,
+          negativeConstraints: "No distorted anatomy, no inconsistent face, no unreadable text, no visual artifacts.",
           captionForPost: buildFunnelAlignedVideoCaption(funnelStage, activeItem, { script: { hook: `Pernah merasa konten kamu sudah dibuat maksimal tapi hasilnya stagnan?`, solusi: activeContext.brand_context?.brand_name ? `Dengan ${activeContext.brand_context.brand_name}, kamu bisa menyusun alur konten ${funnelStage} secara otomatis.` : `Dengan sistem terarah, kamu bisa menyusun alur konten ${funnelStage} secara otomatis.`, cta: voiceoverCta } }, voiceoverCta),
           captionInstruction: "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
         },
@@ -3184,6 +3187,7 @@ Image/Illustration Direction: Clean minimalist social media closing card.`,
           },
           videoPrompt: "Satisfying looping motion graphic of abstract futuristic clockwork gears spinning seamlessly on a clean minimalist gray background, 3D render vertical 9:16.",
           visualPlan: "0-5s: Teks tebal kontras tinggi berkedip cepat di layar. 5-15s: Animasi transisi corong warna neon. 15-25s: Grafik panah menanjak cepat. 25-30s: Layar meredup cepat bersiap menyambung ke awal loop.",
+          negativeConstraints: "No distorted UI, no unreadable interface text, no fake UI artifacts, no broken screen geometry.",
           captionForPost: buildFunnelAlignedVideoCaption(funnelStage, activeItem, { script: { hook: `Inilah alasan kenapa alur konten kamu belum efektif...`, solusi: activeContext.brand_context?.brand_name ? `${activeContext.brand_context.brand_name} membantu merapikan alur ${funnelStage} secara instan.` : `Sistem ini membantu merapikan alur ${funnelStage} secara instan.`, cta: voiceoverCta } }, voiceoverCta),
           captionInstruction: "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
         },
@@ -3203,6 +3207,7 @@ Image/Illustration Direction: Clean minimalist social media closing card.`,
           },
           videoPrompt: "Cinematic slow motion shot of a professional looking relaxed in a beautiful plant-filled cafe, soft golden hour sunlight filtering through glass windows, 8k vertical 9:16.",
           visualPlan: "0-10s: Slow motion talent menikmati minumannya dengan tenang. 10-20s: Close-up tablet menampilkan kurva grafik melesat naik. 20-30s: Teks estetik berukuran sedang muncul perlahan di layar kafe yang asri.",
+          negativeConstraints: "No unreadable typography, no cluttered layout, no broken motion hierarchy, no visual artifacts.",
           captionForPost: buildFunnelAlignedVideoCaption(funnelStage, activeItem, { script: { hook: `Berapa banyak waktu yang dihemat ketika strategi komunikasi tersusun rapi?`, solusi: `Saat alur ${funnelStage} ditata dengan baik, pesan kamu terasa jauh lebih kuat.`, cta: voiceoverCta } }, voiceoverCta),
           captionInstruction: "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
         }
@@ -4002,6 +4007,7 @@ WAJIB kembalikan HANYA array JSON murni persis 3 item (tanpa markdown):
     "script": { "hook": "...", "masalah": "...", "solusi": "...", "proof": "...", "cta": "..." },
     "videoPrompt": "Prompt deskriptif 9:16 vertical video",
     "visualPlan": "...",
+    "negative_constraints": "No distorted anatomy, no inconsistent face, no unreadable text, no visual artifacts.",
     "captionForPost": "[Tulis caption Instagram yang merangkum video sesuai funnel ${funnelStage}]",
     "captionInstruction": "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
   },
@@ -4015,6 +4021,7 @@ WAJIB kembalikan HANYA array JSON murni persis 3 item (tanpa markdown):
     "script": { "hook": "...", "masalah": "...", "solusi": "...", "proof": "...", "cta": "..." },
     "videoPrompt": "Prompt deskriptif 9:16 vertical video",
     "visualPlan": "...",
+    "negative_constraints": "No distorted UI, no unreadable interface text, no fake UI artifacts, no broken screen geometry.",
     "captionForPost": "[Tulis caption Instagram]",
     "captionInstruction": "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
   },
@@ -4028,6 +4035,7 @@ WAJIB kembalikan HANYA array JSON murni persis 3 item (tanpa markdown):
     "script": { "hook": "...", "masalah": "...", "solusi": "...", "proof": "...", "cta": "..." },
     "videoPrompt": "Prompt deskriptif 9:16 vertical video",
     "visualPlan": "...",
+    "negative_constraints": "No unreadable typography, no cluttered layout, no broken motion hierarchy, no visual artifacts.",
     "captionForPost": "[Tulis caption Instagram]",
     "captionInstruction": "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
   }
