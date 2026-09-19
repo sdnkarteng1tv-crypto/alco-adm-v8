@@ -4565,7 +4565,7 @@ ${formatDirection}${revisionDirective}`;
       imageOutput, getInitialDraft, funnelRules, selectedCarouselId,
       setSelectedCarouselId, activeSlideNumber, setActiveSlideNumber, 
       carouselOutput: normalizedCarouselOutput, videoOutput: normalizedVideoOutput, tryParseJSON, normalizeFunnelStage, getFunnelRules,
-      selectedVideoId, handleSelectVideoStyle, showToast,
+      selectedVideoId, selectedVideoProductionMode: selectedVideoId, handleSelectVideoStyle, showToast,
       flowCustomCreator, setFlowCustomCreator,
       flowCustomSetting, setFlowCustomSetting, flowCustomDialogues, setFlowCustomDialogues,
       ugcOutput, sourceItem,

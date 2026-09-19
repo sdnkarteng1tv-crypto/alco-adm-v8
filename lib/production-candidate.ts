@@ -46,50 +46,19 @@ export interface ProductionCandidateValidationResult {
 }
 
 /**
- * Maps Video Style ID (A, B, C) deterministically to canonical production mode.
+ * Maps canonical video production mode deterministically to semantic candidate ID.
  */
-export function resolveVideoProductionMode(
-  id: string
-): VideoProductionMode | null {
-  if (!id || typeof id !== 'string') return null;
-  const cleanId = id.trim().toLowerCase();
-  if (
-    cleanId === 'human_led' ||
-    cleanId === 'video_human_led' ||
-    cleanId === 'a' ||
-    cleanId.startsWith('style a') ||
-    cleanId.startsWith('style_a') ||
-    cleanId.startsWith('option a') ||
-    cleanId.startsWith('a:') ||
-    cleanId.startsWith('a -')
-  ) {
-    return 'human_led';
+export function getVideoCandidateId(
+  mode: VideoProductionMode
+): string {
+  switch (mode) {
+    case 'human_led':
+      return 'video_human_led';
+    case 'product_demo':
+      return 'video_product_demo';
+    case 'motion_explainer':
+      return 'video_motion_explainer';
   }
-  if (
-    cleanId === 'product_demo' ||
-    cleanId === 'video_product_demo' ||
-    cleanId === 'b' ||
-    cleanId.startsWith('style b') ||
-    cleanId.startsWith('style_b') ||
-    cleanId.startsWith('option b') ||
-    cleanId.startsWith('b:') ||
-    cleanId.startsWith('b -')
-  ) {
-    return 'product_demo';
-  }
-  if (
-    cleanId === 'motion_explainer' ||
-    cleanId === 'video_motion_explainer' ||
-    cleanId === 'c' ||
-    cleanId.startsWith('style c') ||
-    cleanId.startsWith('style_c') ||
-    cleanId.startsWith('option c') ||
-    cleanId.startsWith('c:') ||
-    cleanId.startsWith('c -')
-  ) {
-    return 'motion_explainer';
-  }
-  return null;
 }
 
 // Forbidden fields that belong strictly to ProductionPackage authority layer (Phase 3B)
@@ -438,6 +407,28 @@ export function validateProductionCandidate(
       }
     }
 
+    // Mode consistency check
+    const mode = details.production_mode;
+    const sceneTypes = details.scenes.map((s) => s.scene_type);
+    if (mode === 'human_led' && !sceneTypes.includes('talking_head')) {
+      return {
+        isValid: false,
+        error: 'VideoProductionCandidate with production_mode "human_led" must contain at least one scene with scene_type "talking_head".',
+      };
+    }
+    if (mode === 'product_demo' && !sceneTypes.includes('product_screen')) {
+      return {
+        isValid: false,
+        error: 'VideoProductionCandidate with production_mode "product_demo" must contain at least one scene with scene_type "product_screen".',
+      };
+    }
+    if (mode === 'motion_explainer' && !sceneTypes.includes('graphic_motion')) {
+      return {
+        isValid: false,
+        error: 'VideoProductionCandidate with production_mode "motion_explainer" must contain at least one scene with scene_type "graphic_motion".',
+      };
+    }
+
     return { isValid: true };
   }
 
@@ -546,9 +537,11 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 1,
           duration_seconds: 5,
           purpose: 'Proof Hook',
-          visual_direction: 'Menampilkan bukti angka hasil atau dashboard sukses.',
-          action: 'Animasi grafik naik tajam membuktikan efisiensi produk.',
-          camera: 'Slow pan ke atas grafik performa.',
+          visual_direction: script?.proof
+            ? `Visual interface produk menampilkan bukti performa: ${script.proof}`
+            : 'Visual antarmuka produk yang menonjolkan nilai solusi utama.',
+          action: 'Animasi visual produk yang membuktikan efektivitas solusi.',
+          camera: 'Slow pan ke visual antarmuka produk.',
           voiceover: hookText,
           on_screen_text: hookText,
           scene_type: 'product_screen',
@@ -558,8 +551,8 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 2,
           duration_seconds: 7,
           purpose: 'Offer Demo',
-          visual_direction: 'Demonstrasi penawaran spesial di dalam aplikasi.',
-          action: 'Kursor memilih paket berlangganan atau promo diskon.',
+          visual_direction: 'Demonstrasi fitur dan keunggulan produk yang relevan dengan pesan konten.',
+          action: 'Visual menyorot fitur, penawaran, atau elemen produk yang relevan dengan pesan konten.',
           camera: 'Screen capture jernih.',
           voiceover: valueText,
           on_screen_text: valueText,
@@ -570,8 +563,8 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 3,
           duration_seconds: 6,
           purpose: 'Decision CTA',
-          visual_direction: 'Kartu keputusan dengan penawaran terbatas.',
-          action: 'Animasi tombol beli sekarang dan countdown terbatas.',
+          visual_direction: 'Tampilan produk atau interface yang mendukung CTA dari ContentItem.',
+          action: 'End card menampilkan CTA authoritative dari konten.',
           camera: 'Static vertical frame.',
           voiceover: actionText,
           on_screen_text: actionText,
@@ -586,9 +579,9 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 1,
           duration_seconds: 5,
           purpose: 'Specific Problem Hook',
-          visual_direction: 'Menunjukkan diagram atau perbandingan masalah di layar.',
-          action: 'Sorotan merah pada grafik yang menurun atau error.',
-          camera: 'Zoom in dinamis ke area bermasalah.',
+          visual_direction: 'Menunjukkan perbandingan masalah dan konteks di layar produk.',
+          action: 'Sorotan visual pada area kendala audiens yang diatasi produk.',
+          camera: 'Zoom in dinamis ke area fokus masalah.',
           voiceover: hookText,
           on_screen_text: hookText,
           scene_type: 'product_screen',
@@ -598,8 +591,8 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 2,
           duration_seconds: 7,
           purpose: 'Workflow Walkthrough',
-          visual_direction: 'Langkah demi langkah demonstrasi fitur utama.',
-          action: 'Kursor bergerak mengklik fitur dan menghasilkan solusi seketika.',
+          visual_direction: 'Langkah demi langkah demonstrasi alur fitur utama.',
+          action: 'Visual demonstrasi alur kerja produk dalam memecahkan masalah.',
           camera: 'Screen tracking mulus dengan efek sorotan.',
           voiceover: valueText,
           on_screen_text: valueText,
@@ -610,8 +603,8 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 3,
           duration_seconds: 6,
           purpose: 'Medium CTA',
-          visual_direction: 'Tampilan promo pendaftaran akun gratis.',
-          action: 'Animasi tombol daftar sekarang beserta logo resmi.',
+          visual_direction: 'Tampilan interface produk dengan ajakan eksplorasi.',
+          action: 'End card menampilkan arahan aksi dan logo resmi.',
           camera: 'Static layout vertikal.',
           voiceover: actionText,
           on_screen_text: actionText,
@@ -628,7 +621,7 @@ export function buildCanonicalVideoScenePlan(
         purpose: 'Curiosity Hook',
         visual_direction: 'Cuplikan penggunaan produk secara cepat menarik minat.',
         action: 'Menampilkan interaksi pertama dengan visual produk yang estetik.',
-        camera: 'Panning shoot produk dari samping.',
+        camera: 'Panning shot produk dari sudut menarik.',
         voiceover: hookText,
         on_screen_text: hookText,
         scene_type: 'b_roll',
@@ -639,7 +632,7 @@ export function buildCanonicalVideoScenePlan(
         duration_seconds: 7,
         purpose: 'Product Awareness',
         visual_direction: 'Tampilan antarmuka produk yang bersih dan modern.',
-        action: 'Zoom otomatis ke bagian fitur utama yang memecahkan masalah.',
+        action: 'Fokus visual ke bagian fitur utama yang memecahkan masalah.',
         camera: 'Screencast jernih dengan tracking halus.',
         voiceover: valueText,
         on_screen_text: valueText,
@@ -650,8 +643,8 @@ export function buildCanonicalVideoScenePlan(
         scene_number: 3,
         duration_seconds: 6,
         purpose: 'Soft CTA',
-        visual_direction: 'Kartu penutup minimalis dengan logo produk.',
-        action: 'Animasi logo dan petunjuk eksplorasi produk.',
+        visual_direction: 'Kartu penutup minimalis dengan identitas visual produk.',
+        action: 'Animasi visual penutup dan petunjuk eksplorasi konten.',
         camera: 'Static vertical layout.',
         voiceover: actionText,
         on_screen_text: actionText,
@@ -668,9 +661,11 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 1,
           duration_seconds: 5,
           purpose: 'Proof Hook',
-          visual_direction: 'Infografis hasil pencapaian dengan persentase besar.',
-          action: 'Angka persentase bergerak naik (counting up animation).',
-          camera: 'Zoom in terpusat pada angka.',
+          visual_direction: script?.proof
+            ? `Grafik motion menampilkan ringkasan data: ${script.proof}`
+            : 'Tipografi bergerak dan visual motion yang menampilkan poin kunci konten.',
+          action: 'Animasi elemen grafis dinamis mempertegas pesan utama.',
+          camera: 'Zoom in dinamis pada elemen grafis kunci.',
           voiceover: hookText,
           on_screen_text: hookText,
           scene_type: 'graphic_motion',
@@ -680,8 +675,8 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 2,
           duration_seconds: 7,
           purpose: 'Process Showcase',
-          visual_direction: 'Visualisasi alur proses penawaran spesial.',
-          action: 'Animasi kotak penawaran terbuka dan mengeluarkan USP.',
+          visual_direction: 'Visualisasi alur proses dan diferensiasi solusi.',
+          action: 'Animasi diagram atau elemen grafis bergerak menampilkan keunggulan solusi.',
           camera: 'Isometric view motion.',
           voiceover: valueText,
           on_screen_text: valueText,
@@ -692,8 +687,8 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 3,
           duration_seconds: 6,
           purpose: 'Decision CTA',
-          visual_direction: 'Slide penutup dengan instruksi pembelian yang jelas.',
-          action: 'Teks langkah-langkah pembelian muncul dengan efek ketik.',
+          visual_direction: 'Slide penutup motion dengan instruksi tindak lanjut yang jelas.',
+          action: 'End card menampilkan teks langkah tindak lanjut dan CTA konten.',
           camera: 'Static center frame.',
           voiceover: actionText,
           on_screen_text: actionText,
@@ -708,8 +703,8 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 1,
           duration_seconds: 5,
           purpose: 'Insight Hook',
-          visual_direction: 'Grafik masalah dengan animasi pecah atau berguguran.',
-          action: 'Simbol panah menurun patah-patah secara dramatis.',
+          visual_direction: 'Grafik masalah dengan animasi visual terstruktur.',
+          action: 'Animasi grafis menggambarkan pergeseran dari masalah menuju kejelasan.',
           camera: 'Zoom out dinamis.',
           voiceover: hookText,
           on_screen_text: hookText,
@@ -720,8 +715,8 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 2,
           duration_seconds: 7,
           purpose: 'Framework Breakdown',
-          visual_direction: 'Animasi diagram 3 langkah atau checklist bergerak.',
-          action: 'Poin framework muncul berurutan diiringi transisi slide.',
+          visual_direction: 'Animasi diagram tahapan atau poin framework terstruktur.',
+          action: 'Poin framework muncul berurutan diiringi transisi motion yang rapi.',
           camera: 'Smooth slider transition.',
           voiceover: valueText,
           on_screen_text: valueText,
@@ -733,7 +728,7 @@ export function buildCanonicalVideoScenePlan(
           duration_seconds: 6,
           purpose: 'Medium CTA',
           visual_direction: 'Kartu rangkuman dengan visual ajakan bertindak.',
-          action: 'Checklist selesai beralih menjadi tombol aksi.',
+          action: 'Animasi rangkuman beralih menjadi tampilan CTA konten.',
           camera: 'Static focus.',
           voiceover: actionText,
           on_screen_text: actionText,
@@ -749,7 +744,7 @@ export function buildCanonicalVideoScenePlan(
         duration_seconds: 5,
         purpose: 'Visual Hook',
         visual_direction: 'Tipografi bergerak (motion text) tebal dan warna kontras.',
-        action: 'Teks beranimasi muncul satu per satu dengan cepat.',
+        action: 'Teks beranimasi muncul secara ritmis dan dinamis.',
         camera: 'Dynamic transition zoom.',
         voiceover: hookText,
         on_screen_text: hookText,
@@ -760,8 +755,8 @@ export function buildCanonicalVideoScenePlan(
         scene_number: 2,
         duration_seconds: 7,
         purpose: 'Concept Awareness',
-        visual_direction: 'Ilustrasi konsep sederhana berupa lingkaran dan panah.',
-        action: 'Animasi elemen grafis berputar menjelaskan relasi.',
+        visual_direction: 'Ilustrasi konsep visual berupa bentuk geometris dan relasi grafis.',
+        action: 'Animasi elemen grafis berputar menjelaskan relasi ide.',
         camera: 'Symmetrical orthographic view.',
         voiceover: valueText,
         on_screen_text: valueText,
@@ -791,8 +786,10 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 1,
           duration_seconds: 5,
           purpose: 'Proof Hook',
-          visual_direction: 'Talent menunjukkan testimonial atau bukti hasil secara meyakinkan.',
-          action: 'Talent tersenyum percaya diri menyampaikan bukti sosial.',
+          visual_direction: script?.proof
+            ? `Talent menyampaikan poin bukti: ${script.proof}`
+            : 'Talent berbicara percaya diri menyampaikan poin penegasan hasil.',
+          action: 'Talent menatap kamera menyampaikan pesan utama dengan meyakinkan.',
           camera: 'Close-up vertikal terang.',
           voiceover: hookText,
           on_screen_text: hookText,
@@ -804,7 +801,7 @@ export function buildCanonicalVideoScenePlan(
           duration_seconds: 7,
           purpose: 'Offer Benefit',
           visual_direction: 'Talent merekomendasikan solusi utama dengan mantap.',
-          action: 'Talent memegang produk atau menunjuk penawaran.',
+          action: 'Talent mengarahkan gestur menjelaskan manfaat inti solusi.',
           camera: 'Medium close-up vertikal.',
           voiceover: valueText,
           on_screen_text: valueText,
@@ -815,8 +812,8 @@ export function buildCanonicalVideoScenePlan(
           scene_number: 3,
           duration_seconds: 6,
           purpose: 'Decision CTA',
-          visual_direction: 'Talent mengarahkan audiens untuk klik tombol CTA.',
-          action: 'Talent tersenyum memberikan isyarat klik link di bio.',
+          visual_direction: 'Talent mengarahkan audiens untuk merespons CTA.',
+          action: 'Talent memberikan isyarat visual penutup sesuai ajakan bertindak konten.',
           camera: 'Medium shot vertikal.',
           voiceover: actionText,
           on_screen_text: actionText,
@@ -826,15 +823,56 @@ export function buildCanonicalVideoScenePlan(
       ];
     }
 
-  if (stage === 'MOFU') {
+    if (stage === 'MOFU') {
+      return [
+        {
+          scene_number: 1,
+          duration_seconds: 5,
+          purpose: 'Specific Problem Hook',
+          visual_direction: 'Talent berekspresi fokus membahas masalah audiens.',
+          action: 'Talent menatap kamera dengan gestur bertanya.',
+          camera: 'Close-up vertikal.',
+          voiceover: hookText,
+          on_screen_text: hookText,
+          scene_type: 'talking_head',
+          required_assets: ['character'],
+        },
+        {
+          scene_number: 2,
+          duration_seconds: 7,
+          purpose: 'Framework Solution',
+          visual_direction: 'Talent menjelaskan poin-poin framework dengan detail.',
+          action: 'Talent menghitung poin menggunakan gestur tangan yang jelas.',
+          camera: 'Medium close-up vertikal.',
+          voiceover: valueText,
+          on_screen_text: valueText,
+          scene_type: 'talking_head',
+          required_assets: ['character'],
+        },
+        {
+          scene_number: 3,
+          duration_seconds: 6,
+          purpose: 'Medium CTA',
+          visual_direction: 'Talent mengajak interaksi atau diskusi seputar konten.',
+          action: 'Talent melambaikan tangan atau menunjuk mengajak interaksi.',
+          camera: 'Medium shot vertikal.',
+          voiceover: actionText,
+          on_screen_text: actionText,
+          scene_type: 'talking_head',
+          required_assets: ['character'],
+        },
+      ];
+    }
+
+    // TOFU Human Led
     return [
       {
         scene_number: 1,
         duration_seconds: 5,
-        purpose: 'Specific Problem Hook',
-        visual_direction: 'Talent berekspresi serius membahas masalah audiens.',
-        action: 'Talent menatap kamera dengan gestur bertanya.',
-        camera: 'Close-up vertikal.',
+        purpose: 'Curiosity Hook',
+        visual_direction: 'Talent berbicara santai ke kamera dengan latar belakang rapi.',
+        action: 'Talent melakukan gerakan pembuka menarik perhatian.',
+        camera: 'Medium close-up vertikal, eye-level.',
         voiceover: hookText,
         on_screen_text: hookText,
         scene_type: 'talking_head',
@@ -843,10 +881,10 @@ export function buildCanonicalVideoScenePlan(
       {
         scene_number: 2,
         duration_seconds: 7,
-        purpose: 'Framework Solution',
-        visual_direction: 'Talent menjelaskan poin-poin framework dengan detail.',
-        action: 'Talent menghitung poin menggunakan jari.',
-        camera: 'Medium close-up vertikal.',
+        purpose: 'Light Insight',
+        visual_direction: 'Talent tersenyum ramah memberikan penjelasan ringkas.',
+        action: 'Talent mengangguk menjelaskan poin utama.',
+        camera: 'Close-up vertikal hangat.',
         voiceover: valueText,
         on_screen_text: valueText,
         scene_type: 'talking_head',
@@ -855,9 +893,9 @@ export function buildCanonicalVideoScenePlan(
       {
         scene_number: 3,
         duration_seconds: 6,
-        purpose: 'Medium CTA',
-        visual_direction: 'Talent mengajak interaksi atau diskusi di kolom komentar.',
-        action: 'Talent melambaikan tangan mengajak berkomentar.',
+        purpose: 'Soft CTA',
+        visual_direction: 'Talent memberi isyarat ajakan bertindak halus.',
+        action: 'Talent tersenyum mengarahkan gestur ramah ke penonton.',
         camera: 'Medium shot vertikal.',
         voiceover: actionText,
         on_screen_text: actionText,
@@ -865,47 +903,6 @@ export function buildCanonicalVideoScenePlan(
         required_assets: ['character'],
       },
     ];
-  }
-
-  // TOFU Human Led
-  return [
-    {
-      scene_number: 1,
-      duration_seconds: 5,
-      purpose: 'Curiosity Hook',
-      visual_direction: 'Talent berbicara santai ke kamera dengan latar belakang rapi.',
-      action: 'Talent melakukan gerakan tangan pembuka menarik perhatian.',
-      camera: 'Medium close-up vertikal, eye-level.',
-      voiceover: hookText,
-      on_screen_text: hookText,
-      scene_type: 'talking_head',
-      required_assets: ['character'],
-    },
-    {
-      scene_number: 2,
-      duration_seconds: 7,
-      purpose: 'Light Insight',
-      visual_direction: 'Talent tersenyum ramah memberikan tips sederhana.',
-      action: 'Talent mengangguk menjelaskan poin utama.',
-      camera: 'Close-up vertikal hangat.',
-      voiceover: valueText,
-      on_screen_text: valueText,
-      scene_type: 'talking_head',
-      required_assets: ['character'],
-    },
-    {
-      scene_number: 3,
-      duration_seconds: 6,
-      purpose: 'Soft CTA',
-      visual_direction: 'Talent memberi isyarat follow/simpan video.',
-      action: 'Talent tersenyum mengarahkan jari ke bawah layar.',
-      camera: 'Medium shot vertikal.',
-      voiceover: actionText,
-      on_screen_text: actionText,
-      scene_type: 'talking_head',
-      required_assets: ['character'],
-    },
-  ];
   }
 
   throw new Error(`Unhandled video productionMode: ${productionMode}`);

@@ -704,6 +704,28 @@ export function validateProductionPackage(pkg: any): { isValid: boolean; error?:
       }
     }
 
+    // Mode consistency check
+    const mode = vidPkg.video.production_mode;
+    const sceneTypes = vidPkg.video.scenes.map((s) => s.scene_type);
+    if (mode === 'human_led' && !sceneTypes.includes('talking_head')) {
+      return {
+        isValid: false,
+        error: 'VideoProductionPackage with production_mode "human_led" must contain at least one scene with scene_type "talking_head".',
+      };
+    }
+    if (mode === 'product_demo' && !sceneTypes.includes('product_screen')) {
+      return {
+        isValid: false,
+        error: 'VideoProductionPackage with production_mode "product_demo" must contain at least one scene with scene_type "product_screen".',
+      };
+    }
+    if (mode === 'motion_explainer' && !sceneTypes.includes('graphic_motion')) {
+      return {
+        isValid: false,
+        error: 'VideoProductionPackage with production_mode "motion_explainer" must contain at least one scene with scene_type "graphic_motion".',
+      };
+    }
+
     if (typeof vidPkg.final_prompt !== 'string' || !vidPkg.final_prompt.trim()) {
       return { isValid: false, error: 'Missing or empty final_prompt in VideoProductionPackage.' };
     }

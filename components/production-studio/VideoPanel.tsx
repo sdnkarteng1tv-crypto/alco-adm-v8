@@ -34,6 +34,7 @@ export default function VideoPanel(props: any) {
     normalizeFunnelStage,
     getFunnelRules,
     selectedVideoId,
+    selectedVideoProductionMode,
     handleSelectVideoStyle,
     flowCustomCreator,
     flowCustomSetting,
@@ -69,8 +70,15 @@ export default function VideoPanel(props: any) {
     );
   }
 
-  const activeVideo = videoStyles.find((v) => v.id === selectedVideoId) || videoStyles[0];
+  const activeVideo =
+    videoStyles.find(
+      (v) =>
+        (selectedVideoProductionMode && v.productionMode === selectedVideoProductionMode) ||
+        (selectedVideoId && (v.productionMode === selectedVideoId || v.id === selectedVideoId))
+    ) || videoStyles[0];
   const videoFunnelStage = normalizeFunnelStage(activeItem.jenis);
+
+  const activeStyleKey = activeVideo.productionMode || activeVideo.id || 'human_led';
 
   const googleFlowScenes = getGoogleFlowVideoPack(
     videoFunnelStage,
@@ -80,7 +88,7 @@ export default function VideoPanel(props: any) {
     characterDNA,
     flowCustomCreator,
     flowCustomSetting,
-    flowCustomDialogues[activeVideo.id]
+    flowCustomDialogues[activeStyleKey] || flowCustomDialogues[activeVideo.id]
   );
 
   const activeScene = googleFlowScenes.find((s: any) => s.sceneNumber === activeSceneNumber) || googleFlowScenes[0] || {
@@ -94,9 +102,9 @@ export default function VideoPanel(props: any) {
     googleFlowPrompt: '',
   };
 
-  const isImgCopied = copiedStates[`gflow_img_${activeScene.sceneNumber}_${activeVideo.id}`];
-  const isPromptCopied = copiedStates[`gflow_prompt_${activeScene.sceneNumber}_${activeVideo.id}`];
-  const isDialogueCopied = copiedStates[`gflow_dialogue_${activeScene.sceneNumber}_${activeVideo.id}`];
+  const isImgCopied = copiedStates[`gflow_img_${activeScene.sceneNumber}_${activeStyleKey}`];
+  const isPromptCopied = copiedStates[`gflow_prompt_${activeScene.sceneNumber}_${activeStyleKey}`];
+  const isDialogueCopied = copiedStates[`gflow_dialogue_${activeScene.sceneNumber}_${activeStyleKey}`];
 
   return (
     <div className="space-y-4 font-sans">
@@ -109,11 +117,12 @@ export default function VideoPanel(props: any) {
             Style:
           </span>
           {videoStyles.map((style, idx) => {
-            const isSelected = selectedVideoId === style.id;
+            const mode = style.productionMode || style.id;
+            const isSelected = selectedVideoProductionMode ? selectedVideoProductionMode === mode : selectedVideoId === mode || selectedVideoId === style.id;
             return (
               <button
-                key={style.id}
-                onClick={() => handleSelectVideoStyle(style.id)}
+                key={mode || idx}
+                onClick={() => handleSelectVideoStyle(mode)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   isSelected
                     ? 'bg-primary text-white shadow-xs'
@@ -452,10 +461,10 @@ export default function VideoPanel(props: any) {
                   </span>
                 </div>
                 <button
-                  onClick={() => handleCopyText(`video_caption_${activeVideo.id}`, activeVideo.captionForPost || activeItem?.caption, 'captionCopied')}
+                  onClick={() => handleCopyText(`video_caption_${activeStyleKey}`, activeVideo.captionForPost || activeItem?.caption, 'captionCopied')}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f6f3ee] hover:bg-[#e7e0d4] text-[#1f2933] text-xs font-bold rounded-xl transition cursor-pointer border border-[#e7e0d4]"
                 >
-                  {copiedStates[`video_caption_${activeVideo.id}`] ? (
+                  {copiedStates[`video_caption_${activeStyleKey}`] || copiedStates[`video_caption_${activeVideo.id}`] ? (
                     <>
                       <Check size={13} className="text-primary" />
                       <span className="text-primary">Caption Tersalin!</span>
