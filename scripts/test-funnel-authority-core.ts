@@ -2598,31 +2598,30 @@ assert(
   'Test P3C-A-12: Candidate builder operates purely without mutating input parameters'
 );
 
-// P3C-A-13: resolveVideoProductionMode maps Style A to human_led
+// P3C-A-13: getVideoCandidateId maps human_led to video_human_led
 assert(
-  resolveVideoProductionMode('A') === 'human_led',
-  'Test P3C-A-13: resolveVideoProductionMode maps Style A strictly to human_led'
+  getVideoCandidateId('human_led') === 'video_human_led',
+  'Test P3C-A-13: getVideoCandidateId maps human_led strictly to video_human_led'
 );
 
-// P3C-A-14: resolveVideoProductionMode maps Style B to motion_explainer
+// P3C-A-14: getVideoCandidateId maps product_demo to video_product_demo
 assert(
-  resolveVideoProductionMode('B') === 'motion_explainer',
-  'Test P3C-A-14: resolveVideoProductionMode maps Style B strictly to motion_explainer'
+  getVideoCandidateId('product_demo') === 'video_product_demo',
+  'Test P3C-A-14: getVideoCandidateId maps product_demo strictly to video_product_demo'
 );
 
-// P3C-A-15: resolveVideoProductionMode maps Style C to product_demo
+// P3C-A-15: getVideoCandidateId maps motion_explainer to video_motion_explainer
 assert(
-  resolveVideoProductionMode('C') === 'product_demo',
-  'Test P3C-A-15: resolveVideoProductionMode maps Style C strictly to product_demo'
+  getVideoCandidateId('motion_explainer') === 'video_motion_explainer',
+  'Test P3C-A-15: getVideoCandidateId maps motion_explainer strictly to video_motion_explainer'
 );
 
-// P3C-A-16: resolveVideoProductionMode handles case-insensitivity, prefixes, and fail-closed null
+// P3C-A-16: getVideoCandidateId handles all three canonical production modes deterministically
 assert(
-  resolveVideoProductionMode('style_a') === 'human_led' &&
-  resolveVideoProductionMode('Style B (TikTok Loop)') === 'motion_explainer' &&
-  resolveVideoProductionMode('Option C') === 'product_demo' &&
-  resolveVideoProductionMode('unknown_style') === null,
-  'Test P3C-A-16: resolveVideoProductionMode handles case-insensitivity, prefixes, and fail-closed null'
+  getVideoCandidateId('human_led') === 'video_human_led' &&
+  getVideoCandidateId('product_demo') === 'video_product_demo' &&
+  getVideoCandidateId('motion_explainer') === 'video_motion_explainer',
+  'Test P3C-A-16: getVideoCandidateId maps canonical modes deterministically'
 );
 
 // P3C-A-17: buildCanonicalVideoScenePlan respects exact raw CTA in TOFU
@@ -2796,11 +2795,11 @@ assert(
   'Test P3C-A-27: Production Studio page.tsx integrates isAuthoritativeProductionOutputSource provenance check'
 );
 
-// P3C-A-28: Studio page.tsx normalizers accept attachProductionCandidate flag and use resolveVideoProductionMode
+// P3C-A-28: Studio page.tsx normalizers accept attachProductionCandidate flag and use getVideoCandidateId
 assert(
   studioPageContent.includes('attachProductionCandidate: boolean = true') &&
-  studioPageContent.includes('resolveVideoProductionMode(id)'),
-  'Test P3C-A-28: Production Studio normalizers accept attachProductionCandidate flag and use resolveVideoProductionMode'
+  studioPageContent.includes('getVideoCandidateId(v.productionMode)'),
+  'Test P3C-A-28: Production Studio normalizers accept attachProductionCandidate flag and use getVideoCandidateId'
 );
 
 // P3C-A-29: Video Candidate missing format fails validation fail-closed
@@ -2817,12 +2816,12 @@ assert(
   'Test P3C-A-29: Video candidate with empty format fails validation fail-closed'
 );
 
-// P3C-A-30: resolveVideoProductionMode fail-closed returns null for unknown or invalid mode IDs
+// P3C-A-30: getVideoCandidateId deterministic semantic mapping
 assert(
-  resolveVideoProductionMode('XYZ') === null &&
-  resolveVideoProductionMode('') === null &&
-  resolveVideoProductionMode('invalid_mode') === null,
-  'Test P3C-A-30: resolveVideoProductionMode returns null for unknown or invalid IDs (fail-closed)'
+  getVideoCandidateId('human_led') === 'video_human_led' &&
+  getVideoCandidateId('product_demo') === 'video_product_demo' &&
+  getVideoCandidateId('motion_explainer') === 'video_motion_explainer',
+  'Test P3C-A-30: getVideoCandidateId maps all canonical modes to semantic IDs'
 );
 
 // P3C-A-31: isAuthoritativeProductionOutputSource correctness
@@ -2849,10 +2848,10 @@ assert(
   'Test P3C-A-32: Video candidate with empty negative_constraints fails validation fail-closed'
 );
 
-// P3C-A-33: Studio page.tsx resolves video production mode and guards candidate creation on valid productionMode
+// P3C-A-33: Studio page.tsx uses semantic mode and guards candidate creation
 assert(
-  studioPageContent.includes('const productionMode = resolveVideoProductionMode(id)') &&
-  studioPageContent.includes('attachProductionCandidate && productionMode'),
+  studioPageContent.includes('getVideoCandidateId(v.productionMode)') &&
+  studioPageContent.includes('attachProductionCandidate && v.productionMode'),
   'Test P3C-A-33: Production Studio guards video candidate creation fail-closed on valid productionMode'
 );
 
@@ -4085,19 +4084,19 @@ const pkgMismatchedMode: any = {
 const resPkgMismatched = validateProductionPackage(pkgMismatchedMode);
 assert(!resPkgMismatched.isValid && resPkgMismatched.error?.includes('talking_head'), 'Test VARCH-A17: validateProductionPackage rejects human_led package lacking talking_head scenes');
 
-// VARCH-A18: handleSelectVideoStyle tidak lagi memanggil saveProductionPackage
-const handleSelectVideoStart = pageStudioSourceLatest.indexOf('const handleSelectVideoStyle =');
+// VARCH-A18: handleSelectVideoProductionMode tidak lagi memanggil saveProductionPackage
+const handleSelectVideoStart = pageStudioSourceLatest.indexOf('const handleSelectVideoProductionMode =');
 const handleSelectVideoEnd = pageStudioSourceLatest.indexOf('// Direct image generation state');
 assert(
   handleSelectVideoStart !== -1 && handleSelectVideoEnd !== -1 && handleSelectVideoEnd > handleSelectVideoStart,
-  'Test VARCH-A18a: handleSelectVideoStyle function isolated successfully in page.tsx'
+  'Test VARCH-A18a: handleSelectVideoProductionMode function isolated successfully in page.tsx'
 );
 const handleSelectVideoSource = pageStudioSourceLatest.slice(handleSelectVideoStart, handleSelectVideoEnd);
 assert(
   !handleSelectVideoSource.includes('saveProductionPackage') &&
   !handleSelectVideoSource.includes('prepareProductionPackage') &&
-  handleSelectVideoSource.includes('setSelectedVideoId(styleId);'),
-  'Test VARCH-A18b: handleSelectVideoStyle only sets selectedVideoId and does not call saveProductionPackage or prepareProductionPackage'
+  handleSelectVideoSource.includes('setSelectedVideoProductionMode(mode);'),
+  'Test VARCH-A18b: handleSelectVideoProductionMode only sets selectedVideoProductionMode and does not call saveProductionPackage or prepareProductionPackage'
 );
 
 // VARCH-A19: handleGenerateWithAI video and carousel branches do not call saveProductionPackage
@@ -4115,8 +4114,8 @@ assert(
 
 // VARCH-A20: validateAndNormalizeVideoStyles menghasilkan candidate_id semantik
 assert(
-  pageStudioSourceLatest.includes("candidate_id: `video_${productionMode}`"),
-  'Test VARCH-A20: validateAndNormalizeVideoStyles uses semantic candidate_id (video_${productionMode})'
+  pageStudioSourceLatest.includes("candidate_id: getVideoCandidateId(v.productionMode)"),
+  'Test VARCH-A20: validateAndNormalizeVideoStyles uses semantic candidate_id via getVideoCandidateId'
 );
 
 // VARCH-A21: validateAndNormalizeVideoStyles tidak silent fallback ke human_led jika mode tidak diketahui dan tidak dapat dipetakan

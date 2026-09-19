@@ -33,9 +33,8 @@ export default function VideoPanel(props: any) {
     tryParseJSON,
     normalizeFunnelStage,
     getFunnelRules,
-    selectedVideoId,
     selectedVideoProductionMode,
-    handleSelectVideoStyle,
+    handleSelectVideoProductionMode,
     flowCustomCreator,
     flowCustomSetting,
     flowCustomDialogues,
@@ -72,13 +71,11 @@ export default function VideoPanel(props: any) {
 
   const activeVideo =
     videoStyles.find(
-      (v) =>
-        (selectedVideoProductionMode && v.productionMode === selectedVideoProductionMode) ||
-        (selectedVideoId && (v.productionMode === selectedVideoId || v.id === selectedVideoId))
+      (v) => selectedVideoProductionMode && v.productionMode === selectedVideoProductionMode
     ) || videoStyles[0];
   const videoFunnelStage = normalizeFunnelStage(activeItem.jenis);
 
-  const activeStyleKey = activeVideo.productionMode || activeVideo.id || 'human_led';
+  const activeStyleKey = activeVideo.productionMode || 'human_led';
 
   const googleFlowScenes = getGoogleFlowVideoPack(
     videoFunnelStage,
@@ -88,7 +85,7 @@ export default function VideoPanel(props: any) {
     characterDNA,
     flowCustomCreator,
     flowCustomSetting,
-    flowCustomDialogues[activeStyleKey] || flowCustomDialogues[activeVideo.id]
+    flowCustomDialogues[activeStyleKey]
   );
 
   const activeScene = googleFlowScenes.find((s: any) => s.sceneNumber === activeSceneNumber) || googleFlowScenes[0] || {
@@ -117,12 +114,12 @@ export default function VideoPanel(props: any) {
             Style:
           </span>
           {videoStyles.map((style, idx) => {
-            const mode = style.productionMode || style.id;
-            const isSelected = selectedVideoProductionMode ? selectedVideoProductionMode === mode : selectedVideoId === mode || selectedVideoId === style.id;
+            const mode = style.productionMode;
+            const isSelected = selectedVideoProductionMode === mode;
             return (
               <button
                 key={mode || idx}
-                onClick={() => handleSelectVideoStyle(mode)}
+                onClick={() => handleSelectVideoProductionMode?.(mode)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   isSelected
                     ? 'bg-primary text-white shadow-xs'
@@ -130,13 +127,6 @@ export default function VideoPanel(props: any) {
                 }`}
               >
                 <span>{style.name}</span>
-                {idx === 0 && (
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-tight ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
-                  }`}>
-                    Recommended
-                  </span>
-                )}
               </button>
             );
           })}
@@ -166,8 +156,8 @@ export default function VideoPanel(props: any) {
               {googleFlowScenes.map((scene: any) => {
                 const isActive = activeScene.sceneNumber === scene.sceneNumber;
                 const isSceneDone = Boolean(
-                  copiedStates[`gflow_prompt_${scene.sceneNumber}_${activeVideo.id}`] &&
-                  copiedStates[`gflow_img_${scene.sceneNumber}_${activeVideo.id}`]
+                  copiedStates[`gflow_prompt_${scene.sceneNumber}_${activeStyleKey}`] &&
+                  copiedStates[`gflow_img_${scene.sceneNumber}_${activeStyleKey}`]
                 );
                 return (
                   <button
@@ -259,7 +249,7 @@ export default function VideoPanel(props: any) {
                   </span>
                   <button
                     type="button"
-                    onClick={() => handleCopyText(`gflow_dialogue_${activeScene.sceneNumber}_${activeVideo.id}`, activeScene.dialogue, 'none')}
+                    onClick={() => handleCopyText(`gflow_dialogue_${activeScene.sceneNumber}_${activeStyleKey}`, activeScene.dialogue, 'none')}
                     className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
                   >
                     {isDialogueCopied ? <Check size={12} /> : <Copy size={12} />}
@@ -295,7 +285,7 @@ export default function VideoPanel(props: any) {
                 <button
                   type="button"
                   onClick={() =>
-                    handleCopyText(`gflow_img_${activeScene.sceneNumber}_${activeVideo.id}`, activeScene.imagePrompt, 'promptCopied')
+                    handleCopyText(`gflow_img_${activeScene.sceneNumber}_${activeStyleKey}`, activeScene.imagePrompt, 'promptCopied')
                   }
                   className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer border ${
                     isImgCopied
@@ -338,7 +328,7 @@ export default function VideoPanel(props: any) {
                   type="button"
                   onClick={() =>
                     handleCopyText(
-                      `gflow_prompt_${activeScene.sceneNumber}_${activeVideo.id}`,
+                      `gflow_prompt_${activeScene.sceneNumber}_${activeStyleKey}`,
                       activeScene.googleFlowPrompt,
                       'promptCopied'
                     )
@@ -368,12 +358,12 @@ export default function VideoPanel(props: any) {
             {/* Next step links when prompt is copied (Dedicated Google Flow CTA) */}
             <PromptNextStepLinks
               show={Boolean(
-                nextStepVisibleKeys?.[`gflow_img_${activeScene.sceneNumber}_${activeVideo.id}`] ||
-                nextStepVisibleKeys?.[`gflow_prompt_${activeScene.sceneNumber}_${activeVideo.id}`]
+                nextStepVisibleKeys?.[`gflow_img_${activeScene.sceneNumber}_${activeStyleKey}`] ||
+                nextStepVisibleKeys?.[`gflow_prompt_${activeScene.sceneNumber}_${activeStyleKey}`]
               )}
               onDismiss={() => {
-                handleDismissNextStep?.(`gflow_img_${activeScene.sceneNumber}_${activeVideo.id}`);
-                handleDismissNextStep?.(`gflow_prompt_${activeScene.sceneNumber}_${activeVideo.id}`);
+                handleDismissNextStep?.(`gflow_img_${activeScene.sceneNumber}_${activeStyleKey}`);
+                handleDismissNextStep?.(`gflow_prompt_${activeScene.sceneNumber}_${activeStyleKey}`);
               }}
               title="Langkah berikutnya: Google Flow"
               description="Prompt video sudah tersalin. Buka Google Flow FX Studio, lalu tempel prompt untuk render scene."
@@ -464,7 +454,7 @@ export default function VideoPanel(props: any) {
                   onClick={() => handleCopyText(`video_caption_${activeStyleKey}`, activeVideo.captionForPost || activeItem?.caption, 'captionCopied')}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f6f3ee] hover:bg-[#e7e0d4] text-[#1f2933] text-xs font-bold rounded-xl transition cursor-pointer border border-[#e7e0d4]"
                 >
-                  {copiedStates[`video_caption_${activeStyleKey}`] || copiedStates[`video_caption_${activeVideo.id}`] ? (
+                  {copiedStates[`video_caption_${activeStyleKey}`] ? (
                     <>
                       <Check size={13} className="text-primary" />
                       <span className="text-primary">Caption Tersalin!</span>

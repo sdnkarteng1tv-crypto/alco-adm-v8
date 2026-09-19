@@ -408,7 +408,6 @@ export function validateProductionCandidate(
     }
 
     // Mode consistency check
-    const mode = details.production_mode;
     const sceneTypes = details.scenes.map((s) => s.scene_type);
     if (mode === 'human_led' && !sceneTypes.includes('talking_head')) {
       return {

@@ -27,15 +27,14 @@ import {
   ImageProductionCandidate,
   CarouselProductionCandidate,
   VideoProductionCandidate,
-  VideoProductionMode,
   buildImageProductionCandidate,
   buildCarouselProductionCandidate,
   buildVideoProductionCandidate,
   buildCanonicalVideoScenePlan,
-  resolveVideoProductionMode,
+  getVideoCandidateId,
   validateProductionCandidate,
 } from '@/lib/production-candidate';
-import { CarouselSlideProductionPlan, validateProductionPackage } from '@/lib/production-contract';
+import { CarouselSlideProductionPlan, VideoProductionMode, validateProductionPackage } from '@/lib/production-contract';
 import { 
   buildFunnelPromptBlock, 
   getFunnelRules, 
@@ -224,8 +223,7 @@ interface VideoScript {
 }
 
 interface VideoStyle {
-  id: 'A' | 'B' | 'C';
-  productionMode?: VideoProductionMode;
+  productionMode: VideoProductionMode;
   name: string;
   hookStyle: string;
   pacingStyle: string;
@@ -2273,7 +2271,7 @@ function validateAndNormalizeVideoStyles(
       else if (Array.isArray(parsed.videos)) rawList = parsed.videos;
       else rawList = [parsed];
     }
-    if (rawList.length === 0) return null;
+    if (rawList.length !== 3) return null;
 
     const funnelStage = normalizeFunnelStage(activeItem?.jenis);
     const funnelRules = getFunnelRules(activeItem?.jenis);
@@ -2284,12 +2282,13 @@ function validateAndNormalizeVideoStyles(
 
     const validModes: VideoProductionMode[] = ['human_led', 'product_demo', 'motion_explainer'];
     const normalizedStyles: VideoStyle[] = [];
+    const seenModes = new Set<VideoProductionMode>();
 
     for (let idx = 0; idx < rawList.length; idx++) {
       const v = rawList[idx];
       if (!v || typeof v !== 'object') return null;
 
-      // Explicit productionMode resolution without silent fallback
+      // Strict semantic productionMode validation - fail closed without legacy fallback
       let productionMode: VideoProductionMode | null = null;
       if (v.production_mode && validModes.includes(v.production_mode)) {
         productionMode = v.production_mode;
@@ -2297,8 +2296,6 @@ function validateAndNormalizeVideoStyles(
         productionMode = v.productionMode;
       } else if (v.id && validModes.includes(v.id)) {
         productionMode = v.id;
-      } else if (v.id) {
-        productionMode = resolveVideoProductionMode(v.id);
       }
 
       // If mode is unknown or cannot be mapped, fail-closed (no silent fallback to human_led)
@@ -2306,22 +2303,18 @@ function validateAndNormalizeVideoStyles(
         return null;
       }
 
-      const id: 'A' | 'B' | 'C' =
-        v.id === 'A' || v.id === 'B' || v.id === 'C'
-          ? v.id
-          : productionMode === 'human_led'
-          ? 'A'
-          : productionMode === 'product_demo'
-          ? 'B'
-          : productionMode === 'motion_explainer'
-          ? 'C'
-          : idx === 0
-          ? 'A'
-          : idx === 1
-          ? 'B'
-          : 'C';
+      if (seenModes.has(productionMode)) {
+        return null; // Reject duplicate modes
+      }
+      seenModes.add(productionMode);
 
-      const name = String(v.name || `Style ${id}`).trim();
+      const defaultName =
+        productionMode === 'human_led'
+          ? 'Human-Led Style'
+          : productionMode === 'product_demo'
+          ? 'Product Demo Style'
+          : 'Motion Explainer Style';
+      const name = String(v.name || defaultName).trim();
       const hookStyle = String(v.hookStyle || v.hook_style || 'Hook pembuka menarik').trim();
       const pacingStyle = String(v.pacingStyle || v.pacing_style || 'Dinamis').trim();
       const audioDirection = String(v.audioDirection || v.audio_direction || 'Natural voiceover & background music').trim();
@@ -2352,10 +2345,11 @@ function validateAndNormalizeVideoStyles(
       const captionInstruction = String(v.captionInstruction || v.caption_instruction || defaultCaptionInstruction).trim() || defaultCaptionInstruction;
 
       const scenes = buildCanonicalVideoScenePlan(funnelStage, productionMode, script);
+      const candidateId = getVideoCandidateId(productionMode);
       const productionCandidate =
         attachProductionCandidate
           ? buildVideoProductionCandidate({
-              candidate_id: `video_${productionMode}`,
+              candidate_id: candidateId,
               production_mode: productionMode,
               objective: activeItem?.tujuan || funnelRules.goal || '',
               format: '9:16 Vertical Video (Reels/TikTok/Shorts)',
@@ -2376,7 +2370,6 @@ function validateAndNormalizeVideoStyles(
       }
 
       normalizedStyles.push({
-        id,
         productionMode,
         name,
         hookStyle,
@@ -2392,7 +2385,7 @@ function validateAndNormalizeVideoStyles(
       });
     }
 
-    if (normalizedStyles.length === 0) return null;
+    if (normalizedStyles.length !== 3 || seenModes.size !== 3) return null;
 
     return JSON.stringify(normalizedStyles, null, 2);
   } catch (e) {
@@ -3155,11 +3148,10 @@ Image/Illustration Direction: Clean minimalist social media closing card.`,
     }
 
     case 'video': {
-      const vStyles = [
+      const vStyles: VideoStyle[] = [
         {
-          id: "A",
-          productionMode: "human_led" as const,
-          name: `Style A: Human-Led (${funnelStage} Organic)`,
+          productionMode: "human_led",
+          name: `Human-Led (${funnelStage} Organic)`,
           hookStyle: "Pertanyaan spontan langsung menyentuh masalah utama",
           pacingStyle: "Natural, santai, banyak jeda natural",
           audioDirection: "Suara asli kreator (casual tone) dengan musik latar lofi santai",
@@ -3177,9 +3169,8 @@ Image/Illustration Direction: Clean minimalist social media closing card.`,
           captionInstruction: "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
         },
         {
-          id: "B",
-          productionMode: "product_demo" as const,
-          name: "Style B: Product Demo (Workflow Walkthrough)",
+          productionMode: "product_demo",
+          name: "Product Demo (Workflow Walkthrough)",
           hookStyle: "Kalimat pembuka menggantung menyambung dari CTA akhir",
           pacingStyle: "Sangat cepat, transisi secepat kilat, ketukan ritmis",
           audioDirection: "Musik up-beat trend TikTok yang catchy dengan sulih suara energik",
@@ -3197,9 +3188,8 @@ Image/Illustration Direction: Clean minimalist social media closing card.`,
           captionInstruction: "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
         },
         {
-          id: "C",
-          productionMode: "motion_explainer" as const,
-          name: "Style C: Motion Explainer (Storytelling & Framework)",
+          productionMode: "motion_explainer",
+          name: "Motion Explainer (Storytelling & Framework)",
           hookStyle: "Pernyataan filosofis tentang alur komunikasi",
           pacingStyle: "Lambat, dramatis, transisi halus, mengedepankan estetika visual",
           audioDirection: "Musik piano instrumental emosional dengan voiceover mendalam dan hangat",
@@ -3292,7 +3282,7 @@ export default function ProductionStudioPage() {
   // Selected sub-tabs inside Production Studio
   const [selectedAngleId, setSelectedAngleId] = useState<'A' | 'B' | 'C'>('A');
   const [selectedCarouselId, setSelectedCarouselId] = useState<'A' | 'B' | 'C'>('A');
-  const [selectedVideoId, setSelectedVideoId] = useState<'A' | 'B' | 'C'>('A');
+  const [selectedVideoProductionMode, setSelectedVideoProductionMode] = useState<VideoProductionMode>('human_led');
   const [activeSlideNumber, setActiveSlideNumber] = useState<number>(1);
 
   // Video Mode state
@@ -3300,8 +3290,8 @@ export default function ProductionStudioPage() {
   const [flowCustomSetting, setFlowCustomSetting] = useState<string>('');
   const [flowCustomDialogues, setFlowCustomDialogues] = useState<{ [key: string]: { scene1?: string; scene2?: string; scene3?: string } }>({});
 
-  const handleSelectVideoStyle = (styleId: 'A' | 'B' | 'C') => {
-    setSelectedVideoId(styleId);
+  const handleSelectVideoProductionMode = (mode: VideoProductionMode) => {
+    setSelectedVideoProductionMode(mode);
   };
 
   // Direct image generation state
@@ -4003,7 +3993,6 @@ ATURAN FUNNEL ${funnelStage}:
 WAJIB kembalikan HANYA array JSON murni persis 3 item (tanpa markdown):
 [
   {
-    "id": "A",
     "productionMode": "human_led",
     "name": "Human-Led Creator Style",
     "hookStyle": "...",
@@ -4017,7 +4006,6 @@ WAJIB kembalikan HANYA array JSON murni persis 3 item (tanpa markdown):
     "captionInstruction": "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
   },
   {
-    "id": "B",
     "productionMode": "product_demo",
     "name": "Product Workflow Demo",
     "hookStyle": "...",
@@ -4031,7 +4019,6 @@ WAJIB kembalikan HANYA array JSON murni persis 3 item (tanpa markdown):
     "captionInstruction": "Paste teks ini di caption/keterangan postingan setelah aset dibuat."
   },
   {
-    "id": "C",
     "productionMode": "motion_explainer",
     "name": "Motion Explainer & Framework",
     "hookStyle": "...",
@@ -4565,7 +4552,7 @@ ${formatDirection}${revisionDirective}`;
       imageOutput, getInitialDraft, funnelRules, selectedCarouselId,
       setSelectedCarouselId, activeSlideNumber, setActiveSlideNumber, 
       carouselOutput: normalizedCarouselOutput, videoOutput: normalizedVideoOutput, tryParseJSON, normalizeFunnelStage, getFunnelRules,
-      selectedVideoId, selectedVideoProductionMode: selectedVideoId, handleSelectVideoStyle, showToast,
+      selectedVideoProductionMode, handleSelectVideoProductionMode, showToast,
       flowCustomCreator, setFlowCustomCreator,
       flowCustomSetting, setFlowCustomSetting, flowCustomDialogues, setFlowCustomDialogues,
       ugcOutput, sourceItem,
