@@ -2568,7 +2568,7 @@ const testVideoScenes = buildCanonicalVideoScenePlan('TOFU', 'human_led', {
   cta: 'Video cta',
 });
 const builtVideoCand = buildVideoProductionCandidate({
-  candidate_id: 'video_style_A',
+  candidate_id: getVideoCandidateId('human_led'),
   production_mode: 'human_led',
   objective: 'Video goal',
   format: '9:16 Vertical Video (Reels/TikTok/Shorts)',
