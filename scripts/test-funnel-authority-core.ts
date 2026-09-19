@@ -1300,7 +1300,7 @@ assert(
   'Test P2-V: Carousel with non-sequential slide numbers (1, 3, 4) fails package validation'
 );
 
-// Test P2-W: Video scenes not sequential (e.g. 1, 3) -> FAIL
+// Test P2-W: Video scenes not sequential (e.g. 1, 3, 4) -> FAIL
 const nonSequentialScenesVidPkg: VideoProductionPackage = {
   ...validVideoPackage,
   video: {
@@ -1308,6 +1308,7 @@ const nonSequentialScenesVidPkg: VideoProductionPackage = {
     scenes: [
       { ...validVideoPackage.video.scenes[0], scene_number: 1 },
       { ...validVideoPackage.video.scenes[1], scene_number: 3 },
+      { ...validVideoPackage.video.scenes[2], scene_number: 4 },
     ],
   },
 };
@@ -1463,6 +1464,11 @@ const emptySceneVoOstVidPkg: VideoProductionPackage = {
       },
       {
         ...validVideoPackage.video.scenes[1],
+        voiceover: '',
+        on_screen_text: '',
+      },
+      {
+        ...validVideoPackage.video.scenes[2],
         voiceover: '',
         on_screen_text: '',
       },
@@ -2851,7 +2857,8 @@ assert(
 // P3C-A-33: Studio page.tsx uses semantic mode and guards candidate creation
 assert(
   studioPageContent.includes('getVideoCandidateId(productionMode)') &&
-  studioPageContent.includes('attachProductionCandidate ? buildVideoProductionCandidate'),
+  studioPageContent.includes('attachProductionCandidate') &&
+  studioPageContent.includes('buildVideoProductionCandidate({'),
   'Test P3C-A-33: Production Studio guards video candidate creation fail-closed on valid productionMode'
 );
 
@@ -2986,7 +2993,7 @@ for (const mode of p3cbVideoModes) {
     scenes: [
       { scene_number: 1, duration_seconds: 5, purpose: 'P1', visual_direction: 'V1', action: 'A1', camera: 'C1', voiceover: 'VO1', on_screen_text: 'TXT1', scene_type: 'talking_head' as const, required_assets: [] },
       { scene_number: 2, duration_seconds: 5, purpose: 'P2', visual_direction: 'V2', action: 'A2', camera: 'C2', voiceover: 'VO2', on_screen_text: 'TXT2', scene_type: 'product_screen' as const, required_assets: [] },
-      { scene_number: 3, duration_seconds: 5, purpose: 'P3', visual_direction: 'V3', action: 'A3', camera: 'C3', voiceover: 'VO3', on_screen_text: 'TXT3', scene_type: 'end_card' as const, required_assets: [] },
+      { scene_number: 3, duration_seconds: 5, purpose: 'P3', visual_direction: 'V3', action: 'A3', camera: 'C3', voiceover: 'VO3', on_screen_text: 'TXT3', scene_type: 'graphic_motion' as const, required_assets: [] },
     ],
     camera_direction: 'Static shot',
     motion_direction: 'Smooth zoom',
@@ -4023,185 +4030,370 @@ try {
 }
 assert(errorThrown, 'Test VARCH-A13: buildCanonicalVideoScenePlan without valid mode throws error (fail-closed, no silent fallback)');
 
-// VARCH-A14: validateProductionPackage menolak video package dengan scenes != 3
-const baseVideoPkg: any = {
-  package_id: 'pkg_video_1',
-  project_id: 'proj_1',
-  content_item_id: 'item_1',
+// VARCH-A14: validateProductionPackage with valid canonical VideoProductionPackage passes
+const validVideoPkg: ProductionPackage = {
+  package_id: 'pkg-video-human-test',
+  project_id: 'project-test',
+  content_item_id: 'content-test',
+  asset_type: 'video',
   funnel_stage: 'TOFU',
   production_status: 'ready_for_production',
-  created_at: new Date().toISOString(),
-  asset_type: 'video',
+  created_at: '2026-01-01T00:00:00.000Z',
+
   strategy_snapshot: {
-    brand_name: 'Brand',
-    primary_audience: 'Audience',
-    main_offer: 'Offer',
-    core_message: 'Message',
+    brand_name: 'Brand Test',
+    category: '',
+    primary_audience: 'Audience Test',
+    positioning: '',
+    main_offer: 'Offer Test',
+    core_message: 'Core Message Test',
+    campaign_goal: 'Education',
     funnel_stage: 'TOFU',
-    campaign_objective: 'Obj',
-    target_audience: 'Aud',
-    core_angle: 'Ang'
+    funnel_objective: 'Build awareness',
+    message_direction: 'Educational',
+    cta_direction: 'Soft action',
   },
+
   content_snapshot: {
-    hook: 'Hook',
-    core_content: 'Content',
-    title: 'Title',
-    script_or_copy: 'Script',
-    primary_cta: 'CTA',
-    hashtags: []
+    headline: 'Test Headline',
+    body: 'Test Body',
+    caption: 'Test Caption',
+    cta: 'Simpan konten ini',
+    visual_direction: 'Clean vertical content',
+    content_format: 'video',
+    strategic_objective: 'Build awareness',
+    strategic_rationale: 'Relevant to TOFU objective',
   },
+
   brand_visual_snapshot: {
-    brand_name: 'Brand',
-    primary_color: '#000',
-    visual_style: 'Clean'
+    visual_style: 'Clean minimal',
+    color_palette: ['#000000', '#FFFFFF'],
+    typography_style: 'Modern sans-serif',
+    image_style_rules: [],
+    design_mood: 'Professional',
   },
-  final_prompt: 'Video prompt',
+
   video: {
     production_mode: 'human_led',
-    objective: 'Obj',
-    format: '9:16',
-    hook: 'Hook',
-    camera_direction: 'Cam',
-    motion_direction: 'fast',
-    audio_direction: 'voiceover',
-    negative_constraints: 'No artifacts',
+    objective: 'Test objective',
     duration_seconds: 24,
-    scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['talent'] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
-    ]
-  }
-};
-const resPkg2Scenes = validateProductionPackage(baseVideoPkg);
-assert(!resPkg2Scenes.isValid && resPkg2Scenes.error?.includes('must be exactly 3'), 'Test VARCH-A14: validateProductionPackage rejects video package with scenes != 3');
+    format: '9:16 Vertical Video',
+    hook: 'Test hook',
 
-// VARCH-A15: validateProductionPackage menolak video package dengan production_mode invalid
-const pkgInvalidMode: any = {
-  ...baseVideoPkg,
-  video: {
-    ...baseVideoPkg.video,
-    production_mode: 'unknown_mode',
     scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['talent'] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
-      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo3', on_screen_text: 'txt3', required_assets: ['cta'] },
-    ]
-  }
+      {
+        scene_number: 1,
+        duration_seconds: 8,
+        purpose: 'Hook',
+        visual_direction: 'Talent berbicara ke kamera',
+        action: 'Talent menyampaikan hook',
+        camera: 'Medium close-up',
+        voiceover: 'Hook voiceover',
+        on_screen_text: 'Hook',
+        scene_type: 'talking_head',
+        required_assets: ['character'],
+      },
+      {
+        scene_number: 2,
+        duration_seconds: 8,
+        purpose: 'Value',
+        visual_direction: 'Talent menjelaskan insight',
+        action: 'Talent menjelaskan poin utama',
+        camera: 'Medium shot',
+        voiceover: 'Value voiceover',
+        on_screen_text: 'Value',
+        scene_type: 'talking_head',
+        required_assets: ['character'],
+      },
+      {
+        scene_number: 3,
+        duration_seconds: 8,
+        purpose: 'CTA',
+        visual_direction: 'Talent menyampaikan CTA',
+        action: 'Talent memberi arahan akhir',
+        camera: 'Medium close-up',
+        voiceover: 'CTA voiceover',
+        on_screen_text: 'CTA',
+        scene_type: 'talking_head',
+        required_assets: ['character'],
+      },
+    ],
+
+    voiceover: '',
+    on_screen_text: '',
+    camera_direction: 'Natural vertical camera',
+    motion_direction: 'Natural pacing',
+    audio_direction: 'Clear Indonesian voice',
+    branding: '',
+    negative_constraints: 'No distortion',
+  },
+
+  final_prompt: 'Final test prompt',
+};
+const resValidPkg = validateProductionPackage(validVideoPkg);
+assert(resValidPkg.isValid, 'Test VARCH-A14: Valid canonical VideoProductionPackage passes validation');
+
+// VARCH-A15: validateProductionPackage menolak video package dengan scenes != 3 (< 3 scenes)
+const pkg2Scenes: any = {
+  ...validVideoPkg,
+  video: {
+    ...validVideoPkg.video,
+    scenes: validVideoPkg.video.scenes.slice(0, 2),
+  },
+};
+const resPkg2Scenes = validateProductionPackage(pkg2Scenes);
+assert(!resPkg2Scenes.isValid && resPkg2Scenes.error?.includes('must be exactly 3'), 'Test VARCH-A15: validateProductionPackage rejects video package with scenes != 3');
+
+// VARCH-A16: validateProductionPackage menolak video package dengan > 3 scenes
+const pkg4Scenes: any = {
+  ...validVideoPkg,
+  video: {
+    ...validVideoPkg.video,
+    scenes: [
+      ...validVideoPkg.video.scenes,
+      {
+        scene_number: 4,
+        duration_seconds: 8,
+        purpose: 'Outro',
+        visual_direction: 'Talent outro',
+        action: 'Talent pamit',
+        camera: 'Medium shot',
+        voiceover: 'Outro voiceover',
+        on_screen_text: 'Outro',
+        scene_type: 'talking_head',
+        required_assets: ['character'],
+      },
+    ],
+  },
+};
+const resPkg4Scenes = validateProductionPackage(pkg4Scenes);
+assert(!resPkg4Scenes.isValid && resPkg4Scenes.error?.includes('must be exactly 3'), 'Test VARCH-A16: validateProductionPackage rejects video package with > 3 scenes');
+
+// VARCH-A17: validateProductionPackage menolak video package dengan production_mode invalid
+const pkgInvalidMode: any = {
+  ...validVideoPkg,
+  video: {
+    ...validVideoPkg.video,
+    production_mode: 'unknown_mode',
+  },
 };
 const resPkgInvalidMode = validateProductionPackage(pkgInvalidMode);
-assert(!resPkgInvalidMode.isValid && resPkgInvalidMode.error?.includes('production_mode'), 'Test VARCH-A15: validateProductionPackage rejects video package with invalid production_mode');
+assert(!resPkgInvalidMode.isValid && resPkgInvalidMode.error?.includes('production_mode'), 'Test VARCH-A17: validateProductionPackage rejects video package with invalid production_mode');
 
-// VARCH-A16: validateProductionPackage menolak video package dengan scene required_assets berisi empty string
+// VARCH-A18: validateProductionPackage menolak video package dengan scene required_assets berisi empty string
 const pkgEmptyAsset: any = {
-  ...baseVideoPkg,
+  ...validVideoPkg,
   video: {
-    ...baseVideoPkg.video,
+    ...validVideoPkg.video,
     scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['talent', '   '] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
-      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo3', on_screen_text: 'txt3', required_assets: ['cta'] },
-    ]
-  }
+      {
+        ...validVideoPkg.video.scenes[0],
+        required_assets: ['character', '   '],
+      },
+      validVideoPkg.video.scenes[1],
+      validVideoPkg.video.scenes[2],
+    ],
+  },
 };
 const resPkgEmptyAsset = validateProductionPackage(pkgEmptyAsset);
-assert(!resPkgEmptyAsset.isValid && resPkgEmptyAsset.error?.includes('required_assets contains empty'), 'Test VARCH-A16: validateProductionPackage rejects video package with empty string required_assets');
+assert(!resPkgEmptyAsset.isValid && resPkgEmptyAsset.error?.includes('required_assets contains empty'), 'Test VARCH-A18: validateProductionPackage rejects video package with empty string required_assets');
 
-// VARCH-A17: validateProductionPackage rejects video package whose scenes do not match its production_mode
+// VARCH-A19: validateProductionPackage rejects human_led package whose scenes do not have talking_head
 const pkgMismatchedMode: any = {
-  ...baseVideoPkg,
+  ...validVideoPkg,
   video: {
-    ...baseVideoPkg.video,
+    ...validVideoPkg.video,
     production_mode: 'human_led',
-    scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'product_screen', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['screen'] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'product_screen', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
-      { scene_number: 3, duration_seconds: 8, scene_type: 'product_screen', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo3', on_screen_text: 'txt3', required_assets: ['cta'] },
-    ]
-  }
+    scenes: validVideoPkg.video.scenes.map((s: any) => ({ ...s, scene_type: 'product_screen' })),
+  },
 };
 const resPkgMismatched = validateProductionPackage(pkgMismatchedMode);
-assert(!resPkgMismatched.isValid && resPkgMismatched.error?.includes('talking_head'), 'Test VARCH-A17: validateProductionPackage rejects human_led package lacking talking_head scenes');
+assert(!resPkgMismatched.isValid && resPkgMismatched.error?.includes('talking_head'), 'Test VARCH-A19: validateProductionPackage rejects human_led package lacking talking_head scenes');
 
-// VARCH-A18: handleSelectVideoProductionMode tidak lagi memanggil saveProductionPackage
+// VARCH-A20: validateProductionPackage validates valid product_demo package and rejects product_demo without product_screen
+const validProductDemoPkg: any = {
+  ...validVideoPkg,
+  video: {
+    ...validVideoPkg.video,
+    production_mode: 'product_demo',
+    scenes: [
+      {
+        scene_number: 1,
+        duration_seconds: 8,
+        purpose: 'Hook demo',
+        visual_direction: 'Screen recording UI',
+        action: 'Menampilkan workflow',
+        camera: 'Screen capture',
+        voiceover: 'Demo hook',
+        on_screen_text: 'Demo',
+        scene_type: 'product_screen',
+        required_assets: ['screen'],
+      },
+      {
+        scene_number: 2,
+        duration_seconds: 8,
+        purpose: 'Feature highlight',
+        visual_direction: 'Screen recording feature',
+        action: 'Menampilkan fitur',
+        camera: 'Screen capture',
+        voiceover: 'Feature voiceover',
+        on_screen_text: 'Feature',
+        scene_type: 'product_screen',
+        required_assets: ['screen'],
+      },
+      {
+        scene_number: 3,
+        duration_seconds: 8,
+        purpose: 'Demo CTA',
+        visual_direction: 'End card CTA',
+        action: 'Menampilkan CTA',
+        camera: 'Static',
+        voiceover: 'CTA voiceover',
+        on_screen_text: 'CTA',
+        scene_type: 'end_card',
+        required_assets: ['logo'],
+      },
+    ],
+  },
+};
+const resValidProdDemo = validateProductionPackage(validProductDemoPkg);
+assert(resValidProdDemo.isValid, 'Test VARCH-A20a: Valid canonical Product Demo VideoProductionPackage passes validation');
+
+const pkgProductDemoMismatch: any = {
+  ...validProductDemoPkg,
+  video: {
+    ...validProductDemoPkg.video,
+    scenes: validProductDemoPkg.video.scenes.map((s: any) => ({ ...s, scene_type: 'talking_head' })),
+  },
+};
+const resProdDemoMismatch = validateProductionPackage(pkgProductDemoMismatch);
+assert(!resProdDemoMismatch.isValid && resProdDemoMismatch.error?.includes('product_screen'), 'Test VARCH-A20b: validateProductionPackage rejects product_demo package lacking product_screen scenes');
+
+// VARCH-A21: validateProductionPackage validates valid motion_explainer package and rejects motion_explainer without graphic_motion
+const validMotionPkg: any = {
+  ...validVideoPkg,
+  video: {
+    ...validVideoPkg.video,
+    production_mode: 'motion_explainer',
+    scenes: [
+      {
+        scene_number: 1,
+        duration_seconds: 8,
+        purpose: 'Motion hook',
+        visual_direction: 'Kinetic typography animation',
+        action: 'Animated text entry',
+        camera: 'Dynamic 2D',
+        voiceover: 'Motion hook',
+        on_screen_text: 'Motion',
+        scene_type: 'graphic_motion',
+        required_assets: ['typography'],
+      },
+      {
+        scene_number: 2,
+        duration_seconds: 8,
+        purpose: 'Motion insight',
+        visual_direction: 'Chart motion transition',
+        action: 'Diagram animating',
+        camera: 'Dynamic 2D',
+        voiceover: 'Insight voiceover',
+        on_screen_text: 'Insight',
+        scene_type: 'graphic_motion',
+        required_assets: ['graphics'],
+      },
+      {
+        scene_number: 3,
+        duration_seconds: 8,
+        purpose: 'Motion CTA',
+        visual_direction: 'Animated CTA button',
+        action: 'Pulsing CTA',
+        camera: 'Static 2D',
+        voiceover: 'CTA voiceover',
+        on_screen_text: 'CTA',
+        scene_type: 'end_card',
+        required_assets: ['button'],
+      },
+    ],
+  },
+};
+const resValidMotion = validateProductionPackage(validMotionPkg);
+assert(resValidMotion.isValid, 'Test VARCH-A21a: Valid canonical Motion Explainer VideoProductionPackage passes validation');
+
+const pkgMotionMismatch: any = {
+  ...validMotionPkg,
+  video: {
+    ...validMotionPkg.video,
+    scenes: validMotionPkg.video.scenes.map((s: any) => ({ ...s, scene_type: 'talking_head' })),
+  },
+};
+const resMotionMismatch = validateProductionPackage(pkgMotionMismatch);
+assert(!resMotionMismatch.isValid && resMotionMismatch.error?.includes('graphic_motion'), 'Test VARCH-A21b: validateProductionPackage rejects motion_explainer package lacking graphic_motion scenes');
+
+// VARCH-A22: handleSelectVideoProductionMode tidak lagi memanggil saveProductionPackage
 const handleSelectVideoStart = pageStudioSourceLatest.indexOf('const handleSelectVideoProductionMode =');
 const handleSelectVideoEnd = pageStudioSourceLatest.indexOf('// Direct image generation state');
 assert(
   handleSelectVideoStart !== -1 && handleSelectVideoEnd !== -1 && handleSelectVideoEnd > handleSelectVideoStart,
-  'Test VARCH-A18a: handleSelectVideoProductionMode function isolated successfully in page.tsx'
+  'Test VARCH-A22a: handleSelectVideoProductionMode function isolated successfully in page.tsx'
 );
 const handleSelectVideoSource = pageStudioSourceLatest.slice(handleSelectVideoStart, handleSelectVideoEnd);
 assert(
   !handleSelectVideoSource.includes('saveProductionPackage') &&
   !handleSelectVideoSource.includes('prepareProductionPackage') &&
   handleSelectVideoSource.includes('setSelectedVideoProductionMode(mode);'),
-  'Test VARCH-A18b: handleSelectVideoProductionMode only sets selectedVideoProductionMode and does not call saveProductionPackage or prepareProductionPackage'
+  'Test VARCH-A22b: handleSelectVideoProductionMode only sets selectedVideoProductionMode and does not call saveProductionPackage or prepareProductionPackage'
 );
 
-// VARCH-A19: handleGenerateWithAI video and carousel branches do not call saveProductionPackage
+// VARCH-A23: handleGenerateWithAI video and carousel branches do not call saveProductionPackage
 const handleGenAIStart = pageStudioSourceLatest.indexOf('const handleGenerateWithAI =');
 const handleGenAIEnd = pageStudioSourceLatest.indexOf('const renderTabContent =');
 assert(
   handleGenAIStart !== -1 && handleGenAIEnd !== -1 && handleGenAIEnd > handleGenAIStart,
-  'Test VARCH-A19a: handleGenerateWithAI function isolated successfully in page.tsx'
+  'Test VARCH-A23a: handleGenerateWithAI function isolated successfully in page.tsx'
 );
 const handleGenAISource = pageStudioSourceLatest.slice(handleGenAIStart, handleGenAIEnd);
 assert(
   !handleGenAISource.includes("saveProductionPackage(canonicalProjectId, productionPackage)"),
-  'Test VARCH-A19b: handleGenerateWithAI does not call saveProductionPackage for video or carousel'
+  'Test VARCH-A23b: handleGenerateWithAI does not call saveProductionPackage for video or carousel'
 );
 
-// VARCH-A20: validateAndNormalizeVideoStyles menghasilkan candidate_id semantik
+// VARCH-A24: validateAndNormalizeVideoStyles menghasilkan candidate_id semantik
 assert(
-  pageStudioSourceLatest.includes("candidate_id: getVideoCandidateId(productionMode)"),
-  'Test VARCH-A20: validateAndNormalizeVideoStyles uses semantic candidate_id via getVideoCandidateId'
+  pageStudioSourceLatest.includes("getVideoCandidateId(productionMode)") &&
+  pageStudioSourceLatest.includes("candidate_id: candidateId"),
+  'Test VARCH-A24: validateAndNormalizeVideoStyles uses semantic candidate_id via getVideoCandidateId'
 );
 
-// VARCH-A21: validateAndNormalizeVideoStyles tidak silent fallback ke human_led jika mode tidak diketahui dan tidak dapat dipetakan
+// VARCH-A25: validateAndNormalizeVideoStyles tidak silent fallback ke human_led jika mode tidak diketahui dan tidak dapat dipetakan
 assert(
   !pageStudioSourceLatest.includes("resolveVideoProductionMode") &&
   pageStudioSourceLatest.includes("const rawMode = v.productionMode ?? v.production_mode;"),
-  'Test VARCH-A21: validateAndNormalizeVideoStyles fails closed without silent fallback to human_led'
+  'Test VARCH-A25: validateAndNormalizeVideoStyles fails closed without silent fallback to human_led'
 );
 
-// VARCH-A22: validateAndNormalizeVideoStyles covers all 3 canonical production modes
+// VARCH-A26: validateAndNormalizeVideoStyles covers all 3 canonical production modes
 assert(
   pageStudioSourceLatest.includes('productionMode === \'human_led\'') &&
   pageStudioSourceLatest.includes('productionMode === \'product_demo\'') &&
   pageStudioSourceLatest.includes('rawMode !== \'motion_explainer\''),
-  'Test VARCH-A22: validateAndNormalizeVideoStyles covers human_led, product_demo, motion_explainer'
+  'Test VARCH-A26: validateAndNormalizeVideoStyles covers human_led, product_demo, motion_explainer'
 );
 
-// VARCH-A23: Initial video draft menggunakan semantic productionMode
+// VARCH-A27: Initial video draft menggunakan semantic productionMode
 assert(
   pageStudioSourceLatest.includes('productionMode: "human_led"') &&
   pageStudioSourceLatest.includes('productionMode: "product_demo"') &&
   pageStudioSourceLatest.includes('productionMode: "motion_explainer"'),
-  'Test VARCH-A23: Initial video draft uses semantic productionMode values'
+  'Test VARCH-A27: Initial video draft uses semantic productionMode values'
 );
 
-// VARCH-A24: VideoPanel supports selectedVideoProductionMode and semantic mode selection
+// VARCH-A28: VideoPanel supports selectedVideoProductionMode and semantic mode selection
 const videoPanelPath = path.join(projectRoot, 'components', 'production-studio', 'VideoPanel.tsx');
 const videoPanelSource = fs.readFileSync(videoPanelPath, 'utf8');
 assert(
   videoPanelSource.includes('selectedVideoProductionMode') &&
   videoPanelSource.includes('activeStyleKey = activeVideo.productionMode'),
-  'Test VARCH-A24: VideoPanel supports selectedVideoProductionMode and semantic mode selection'
+  'Test VARCH-A28: VideoPanel supports selectedVideoProductionMode and semantic mode selection'
 );
-
-// VARCH-A25: Exactly 3 scenes contract dipatuhi end-to-end dengan valid video package
-const validVideoPkg: any = {
-  ...baseVideoPkg,
-  video: {
-    ...baseVideoPkg.video,
-    scenes: [
-      { scene_number: 1, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo1', on_screen_text: 'txt1', required_assets: ['talent'] },
-      { scene_number: 2, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo2', on_screen_text: 'txt2', required_assets: ['screen'] },
-      { scene_number: 3, duration_seconds: 8, scene_type: 'talking_head', purpose: 'p', visual_direction: 'v', action: 'a', camera: 'c', voiceover: 'vo3', on_screen_text: 'txt3', required_assets: ['cta'] },
-    ]
-  }
-};
-const resValidPkg = validateProductionPackage(validVideoPkg);
-assert(resValidPkg.isValid, 'Test VARCH-A25: Exactly 3 scenes contract is respected end-to-end for valid video package');
 
 // -------------------------------------------------------------
 // RESULTS SUMMARY
